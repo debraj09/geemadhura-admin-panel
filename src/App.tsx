@@ -8,7 +8,7 @@ import Videos from "./pages/Videos";
 import Galleries from "./pages/Galleries";
 import NotFound from "./pages/NotFound";
 import Certifications from "./pages/Certifications";
-
+import FAQ from "./pages/FAQ";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -24,6 +24,7 @@ const App = () => (
           <Route path="/galleries" element={<Galleries />} />
           {/* Placeholder routes for other sections */}
           <Route path="/logos" element={<NotFound />} />
+          <Route path="/faq" element={<FAQ />} />
           <Route path="/news" element={<NotFound />} />
           <Route path="/certifications" element={<Certifications />} />
           <Route path="/testimonials" element={<NotFound />} />

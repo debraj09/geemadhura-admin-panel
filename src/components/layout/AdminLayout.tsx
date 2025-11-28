@@ -28,7 +28,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold">BTR Communication</h1>
+          <h1 className="text-xl font-bold">Geemadhura Admin Panel</h1>
           <div className="ml-auto flex items-center gap-4">
             <div className="relative hidden md:block w-64">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -78,6 +78,14 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               >
                 <span className="text-muted-foreground">📰</span>
                 News
+              </NavLink>
+              <NavLink
+                to="/faq"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                activeClassName="bg-muted font-medium"
+              >
+                <span className="text-muted-foreground">📰</span>
+                FAQ
               </NavLink>
               <NavLink
                 to="/certifications"

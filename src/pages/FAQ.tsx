@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Edit2, Trash2, PlusCircle, Loader2 } from 'lucide-react';
-// Assuming these components are available from your project structure
-import AdmiLayout from '@/components/layout/AdminLayout';
-// --- CORRECTED MOCK COMPONENT DEFINITIONS ---
-// The component now accepts 'id' and uses rest parameters to capture other HTML attributes
-const AdminLayout = ({ children }) => <div className="p-8 max-w-7xl mx-auto">{children}</div>;
-const Button = ({ children, onClick, className, variant = 'default', size = 'default', disabled = false }) => (
-    <button onClick={onClick} className={`px-4 py-2 font-semibold rounded-lg transition-colors ${className}`} disabled={disabled}>
+import AdminLayout from "@/components/layout/AdminLayout";
+
+// --- BASE URL CONFIGURATION ---
+const API_BASE_URL = 'https://geemadhura.braventra.in/api/faqs'; 
+// NOTE: Assuming your backend routes are prefixed correctly relative to the base URL.
+
+// --- MOCK/PLACEHOLDER COMPONENT DEFINITIONS (Keep for component functionality) ---
+const AdmiLayout = ({ children }) => <div className="p-8 max-w-7xl mx-auto">{children}</div>;
+const Button = ({ children, onClick, className, disabled = false, ...rest }) => (
+    <button onClick={onClick} className={`px-4 py-2 font-semibold rounded-lg transition-colors ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={disabled} {...rest}>
         {children}
     </button>
 );
-
-// FIX: Added 'id' and explicitly passed it to the input element
 const Input = ({ placeholder, value, onChange, className, type = 'text', id, ...rest }) => (
     <input
-        id={id} // <-- FIX APPLIED HERE
+        id={id}
         type={type}
         placeholder={placeholder}
         value={value}
@@ -23,11 +24,9 @@ const Input = ({ placeholder, value, onChange, className, type = 'text', id, ...
         {...rest}
     />
 );
-
-// FIX: Added 'id' and explicitly passed it to the textarea element
 const Textarea = ({ placeholder, value, onChange, className, id, ...rest }) => (
     <textarea
-        id={id} // <-- FIX APPLIED HERE
+        id={id}
         placeholder={placeholder}
         value={value}
         onChange={onChange}
@@ -35,16 +34,14 @@ const Textarea = ({ placeholder, value, onChange, className, id, ...rest }) => (
         {...rest}
     />
 );
-
 const Checkbox = ({ checked, onCheckedChange, id }) => (
     <input type="checkbox" checked={checked} onChange={(e) => onCheckedChange(e.target.checked)} id={id} className="w-4 h-4" />
 );
-
 // Minimal Dialog Implementation for structure
 const Dialog = ({ open, onOpenChange, children }) => {
     if (!open) return null;
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => onOpenChange(false)}>
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
                 {children}
             </div>
@@ -65,60 +62,11 @@ interface FAQ {
     answers: string;
 }
 
-// --- MOCK API FUNCTIONS (Replace with your actual fetch logic) ---
-const API_BASE_URL = '/api/faqs'; 
-
-const mockApi = {
-    // Simulate fetching FAQs
-    fetchFaqs: async (search: string): Promise<FAQ[]> => {
-        console.log(`[API] Fetching FAQs with search: ${search}`);
-        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate delay
-        const dummyData: FAQ[] = [
-            { id: 1, qus: "How long does a typical project take?", answers: "A typical project takes about 4-6 weeks, depending on complexity and scope." },
-            { id: 2, qus: "Do you offer international shipping?", answers: "Yes, we ship worldwide. Delivery times vary by destination." },
-            { id: 3, qus: "What is your refund policy?", answers: "We offer a full 30-day money-back guarantee on all products." },
-            { id: 4, qus: "Can I customize my order?", answers: "Absolutely! Please contact our sales team to discuss custom options." },
-        ];
-        
-        if (!search) return dummyData;
-        return dummyData.filter(faq => 
-            faq.qus.toLowerCase().includes(search.toLowerCase()) ||
-            faq.answers.toLowerCase().includes(search.toLowerCase())
-        );
-    },
-
-    // Simulate creating an FAQ
-    createFaq: async (qus: string, answers: string): Promise<FAQ> => {
-        console.log(`[API] Creating FAQ: ${qus}`);
-        await new Promise(resolve => setTimeout(resolve, 500)); 
-        return { id: Math.floor(Math.random() * 1000) + 10, qus, answers };
-    },
-
-    // Simulate updating an FAQ
-    updateFaq: async (id: number, qus: string, answers: string): Promise<void> => {
-        console.log(`[API] Updating FAQ ${id}`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-    },
-
-    // Simulate deleting an FAQ
-    deleteFaq: async (id: number): Promise<void> => {
-        console.log(`[API] Deleting FAQ ${id}`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-    },
-
-    // Simulate deleting multiple FAQs
-    deleteMultipleFaqs: async (ids: number[]): Promise<void> => {
-        console.log(`[API] Deleting FAQs: ${ids.join(', ')}`);
-        await new Promise(resolve => setTimeout(resolve, 500));
-    }
-};
-// --- END MOCK API FUNCTIONS ---
-
-
-const FAQ = () => {
+const FAQComponent = () => {
     const [faqs, setFaqs] = useState<FAQ[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false); // For form submissions
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [currentFaq, setCurrentFaq] = useState<FAQ | null>(null);
@@ -132,20 +80,23 @@ const FAQ = () => {
 
     const isFormValid = useMemo(() => qus.trim().length > 0 && answers.trim().length > 0, [qus, answers]);
 
-    // --- Data Fetching ---
+    // --- Data Fetching (GET /) ---
     const fetchFaqs = async () => {
         setIsLoading(true);
         try {
-            // NOTE: Replace this mock call with your actual fetch to /api/faqs
-            // const response = await fetch(`${API_BASE_URL}?search=${searchTerm}`);
-            // const data = await response.json();
-            // setFaqs(data.data);
+            const url = searchTerm ? `${API_BASE_URL}?search=${encodeURIComponent(searchTerm)}` : API_BASE_URL;
+            const response = await fetch(url);
             
-            const data = await mockApi.fetchFaqs(searchTerm);
-            setFaqs(data);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            // Assuming your API returns { status: 200, data: [...] }
+            setFaqs(data.data || []);
         } catch (error) {
             console.error('Failed to fetch FAQs:', error);
-            // toast.error('Failed to load FAQ data.');
+            // In a real app, use a toast/notification system here
         } finally {
             setIsLoading(false);
         }
@@ -155,7 +106,7 @@ const FAQ = () => {
         fetchFaqs();
     }, [searchTerm]); // Refetch when search term changes
 
-    // --- Form Handlers ---
+    // --- Utility Functions ---
 
     const resetForm = () => {
         setQus('');
@@ -163,29 +114,47 @@ const FAQ = () => {
         setCurrentFaq(null);
     };
 
+    const closeModal = () => {
+        setIsCreateOpen(false);
+        setIsEditOpen(false);
+        resetForm();
+    }
+
+    // --- CRUD Handlers ---
+
+    // Create (POST /create)
     const handleCreate = async () => {
-        if (!isFormValid) return;
+        if (!isFormValid || isSubmitting) return;
 
+        setIsSubmitting(true);
         try {
-            // NOTE: Replace this mock call with your actual POST to /api/faqs/create
-            // const response = await fetch(`${API_BASE_URL}/create`, { method: 'POST', body: JSON.stringify({ qus, answers }) });
-            // if (response.ok) { ... }
+            const response = await fetch(`${API_BASE_URL}/create`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qus, answers }),
+            });
 
-            await mockApi.createFaq(qus, answers);
-            
+            if (!response.ok) {
+                // Read error message from backend if available
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to create FAQ: HTTP status ${response.status}`);
+            }
+
             // toast.success('FAQ created successfully!');
             console.log('FAQ created successfully!');
 
-            setIsCreateOpen(false);
-            resetForm();
+            closeModal();
             fetchFaqs(); // Refresh list
 
         } catch (error) {
-            console.error('Failed to create FAQ:', error);
-            // toast.error('Failed to create FAQ.');
+            console.error('Error creating FAQ:', error);
+            // toast.error(`Failed to create FAQ: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
+    // Edit Modal Opener
     const handleEditOpen = (faq: FAQ) => {
         setCurrentFaq(faq);
         setQus(faq.qus);
@@ -193,73 +162,91 @@ const FAQ = () => {
         setIsEditOpen(true);
     };
 
+    // Update (PUT /update/:id)
     const handleUpdate = async () => {
-        if (!currentFaq || !isFormValid) return;
+        if (!currentFaq || !isFormValid || isSubmitting) return;
 
+        setIsSubmitting(true);
         try {
-            // NOTE: Replace this mock call with your actual PUT to /api/faqs/update/:id
-            // const response = await fetch(`${API_BASE_URL}/update/${currentFaq.id}`, { method: 'PUT', body: JSON.stringify({ qus, answers }) });
-            // if (response.ok) { ... }
+            const response = await fetch(`${API_BASE_URL}/update/${currentFaq.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qus, answers }),
+            });
 
-            await mockApi.updateFaq(currentFaq.id, qus, answers);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to update FAQ: HTTP status ${response.status}`);
+            }
 
             // toast.success('FAQ updated successfully!');
             console.log('FAQ updated successfully!');
 
-            setIsEditOpen(false);
-            resetForm();
+            closeModal();
             fetchFaqs(); // Refresh list
 
         } catch (error) {
-            console.error('Failed to update FAQ:', error);
-            // toast.error('Failed to update FAQ.');
+            console.error('Error updating FAQ:', error);
+            // toast.error(`Failed to update FAQ: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    // --- Deletion Handlers ---
-
+    // Delete Single (DELETE /delete/:id)
     const handleDelete = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this FAQ entry?')) return;
         
         try {
-            // NOTE: Replace this mock call with your actual DELETE to /api/faqs/delete/:id
-            // const response = await fetch(`${API_BASE_URL}/delete/${id}`, { method: 'DELETE' });
-            // if (response.ok) { ... }
-
-            await mockApi.deleteFaq(id);
+            const response = await fetch(`${API_BASE_URL}/delete/${id}`, { method: 'DELETE' });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to delete FAQ: HTTP status ${response.status}`);
+            }
 
             // toast.success('FAQ deleted successfully.');
             console.log('FAQ deleted successfully.');
             
             fetchFaqs(); // Refresh list
-            setSelectedIds(selectedIds.filter(itemId => itemId !== id));
+            setSelectedIds(selectedIds.filter(itemId => itemId !== id)); // Deselect deleted item
 
         } catch (error) {
-            console.error('Failed to delete FAQ:', error);
-            // toast.error('Failed to delete FAQ.');
+            console.error('Error deleting FAQ:', error);
+            // toast.error(`Failed to delete FAQ: ${error.message}`);
         }
     };
 
+    // Delete Multiple (POST /delete-multiple)
     const handleDeleteMultiple = async () => {
-        if (selectedIds.length === 0) return;
+        if (selectedIds.length === 0 || isSubmitting) return;
         if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} FAQ entries?`)) return;
 
+        setIsSubmitting(true);
         try {
-            // NOTE: Replace this mock call with your actual POST to /api/faqs/delete-multiple
-            // const response = await fetch(`${API_BASE_URL}/delete-multiple`, { method: 'POST', body: JSON.stringify({ ids: selectedIds }) });
-            // if (response.ok) { ... }
+            const response = await fetch(`${API_BASE_URL}/delete-multiple`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedIds }),
+            });
 
-            await mockApi.deleteMultipleFaqs(selectedIds);
-            
-            // toast.success(`${selectedIds.length} FAQs deleted successfully.`);
-            console.log(`${selectedIds.length} FAQs deleted successfully.`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Failed to delete multiple FAQs: HTTP status ${response.status}`);
+            }
+
+            const data = await response.json();
+            // toast.success(`${data.deletedCount} FAQs deleted successfully.`);
+            console.log(`${data.deletedCount} FAQs deleted successfully.`);
 
             setSelectedIds([]);
             fetchFaqs(); // Refresh list
 
         } catch (error) {
-            console.error('Failed to delete multiple FAQs:', error);
-            // toast.error('Failed to delete multiple FAQs.');
+            console.error('Error deleting multiple FAQs:', error);
+            // toast.error(`Failed to delete multiple FAQs: ${error.message}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -283,7 +270,7 @@ const FAQ = () => {
     const isAllSelected = selectedIds.length > 0 && selectedIds.length === faqs.length;
 
     return (
-        <AdmiLayout>
+        <AdminLayout>
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -314,14 +301,15 @@ const FAQ = () => {
                                 placeholder="Search questions or answers..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9 bg-gray-50 focus:bg-white" id={undefined}                            />
+                                className="pl-9 bg-gray-50 focus:bg-white" id="search-input" 
+                            />
                         </div>
 
                         {/* Delete Multiple Button */}
                         <div className="w-full md:w-auto">
                             <Button 
                                 onClick={handleDeleteMultiple} 
-                                disabled={selectedIds.length === 0 || isLoading}
+                                disabled={selectedIds.length === 0 || isSubmitting || isLoading}
                                 className={`
                                     flex items-center gap-1 transition-all
                                     ${selectedIds.length > 0 
@@ -329,9 +317,8 @@ const FAQ = () => {
                                         : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                     }
                                 `}
-                                variant="outline"
                             >
-                                {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+                                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
                                 <Trash2 className="h-4 w-4" />
                                 Delete ({selectedIds.length})
                             </Button>
@@ -387,16 +374,12 @@ const FAQ = () => {
                                             </td>
                                             <td className="p-4 text-right space-x-2">
                                                 <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
                                                     onClick={() => handleEditOpen(faq)}
                                                     className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 bg-transparent p-1"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
                                                 </Button>
                                                 <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
                                                     onClick={() => handleDelete(faq.id)}
                                                     className="text-red-600 hover:text-red-700 hover:bg-red-50 bg-transparent p-1"
                                                 >
@@ -413,7 +396,7 @@ const FAQ = () => {
             </div>
 
             {/* Create FAQ Dialog */}
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <Dialog open={isCreateOpen} onOpenChange={closeModal}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Create New FAQ</DialogTitle>
@@ -422,7 +405,7 @@ const FAQ = () => {
                         <div className="space-y-2">
                             <Label htmlFor="create-qus">Question<span className="text-red-500">*</span></Label>
                             <Input
-                                id="create-qus" // <-- ID IS NOW SUPPORTED
+                                id="create-qus"
                                 value={qus}
                                 onChange={(e) => setQus(e.target.value)}
                                 placeholder="E.g., What services do you offer?" className={undefined}                            />
@@ -430,7 +413,7 @@ const FAQ = () => {
                         <div className="space-y-2">
                             <Label htmlFor="create-answers">Answer<span className="text-red-500">*</span></Label>
                             <Textarea
-                                id="create-answers" // <-- ID IS NOW SUPPORTED
+                                id="create-answers"
                                 value={answers}
                                 onChange={(e) => setAnswers(e.target.value)}
                                 placeholder="Provide the detailed answer here..." className={undefined}                            />
@@ -438,18 +421,17 @@ const FAQ = () => {
                     </div>
                     <DialogFooter>
                         <Button 
-                            variant="outline" 
-                            onClick={() => setIsCreateOpen(false)}
-                            className="text-gray-600 border-gray-300 hover:bg-gray-100"
+                            onClick={closeModal}
+                            className="text-gray-600 border-gray-300 hover:bg-gray-100 border"
                         >
                             Cancel
                         </Button>
                         <Button 
                             onClick={handleCreate} 
-                            disabled={!isFormValid || isLoading}
+                            disabled={!isFormValid || isSubmitting}
                             className="bg-blue-600 hover:bg-blue-700 text-white"
                         >
-                            {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <PlusCircle className="h-4 w-4 mr-1" />}
                             Create FAQ
                         </Button>
                     </DialogFooter>
@@ -457,7 +439,7 @@ const FAQ = () => {
             </Dialog>
             
             {/* Edit FAQ Dialog */}
-            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <Dialog open={isEditOpen} onOpenChange={closeModal}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Edit FAQ #{currentFaq?.id}</DialogTitle>
@@ -466,7 +448,7 @@ const FAQ = () => {
                         <div className="space-y-2">
                             <Label htmlFor="edit-qus">Question<span className="text-red-500">*</span></Label>
                             <Input
-                                id="edit-qus" // <-- ID IS NOW SUPPORTED
+                                id="edit-qus"
                                 value={qus}
                                 onChange={(e) => setQus(e.target.value)}
                                 placeholder="Question" className={undefined}                            />
@@ -474,7 +456,7 @@ const FAQ = () => {
                         <div className="space-y-2">
                             <Label htmlFor="edit-answers">Answer<span className="text-red-500">*</span></Label>
                             <Textarea
-                                id="edit-answers" // <-- ID IS NOW SUPPORTED
+                                id="edit-answers"
                                 value={answers}
                                 onChange={(e) => setAnswers(e.target.value)}
                                 placeholder="Answer" className={undefined}                            />
@@ -482,25 +464,24 @@ const FAQ = () => {
                     </div>
                     <DialogFooter>
                         <Button 
-                            variant="outline" 
-                            onClick={() => setIsEditOpen(false)}
-                            className="text-gray-600 border-gray-300 hover:bg-gray-100"
+                            onClick={closeModal}
+                            className="text-gray-600 border-gray-300 hover:bg-gray-100 border"
                         >
                             Cancel
                         </Button>
                         <Button 
                             onClick={handleUpdate} 
-                            disabled={!isFormValid || isLoading}
+                            disabled={!isFormValid || isSubmitting}
                             className="bg-green-600 hover:bg-green-700 text-white"
                         >
-                            {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Edit2 className="h-4 w-4 mr-1" />}
                             Save Changes
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </AdmiLayout>
+        </AdminLayout>
     );
 };
 
-export default FAQ;
+export default FAQComponent;

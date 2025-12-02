@@ -46,7 +46,7 @@ interface ServiceFormData {
 }
 
 // --- DYNAMIC BASE URL CONFIGURATION ---
-const BASE_URL: string = 'https://btr.braventra.in';
+const BASE_URL: string = 'https://geemadhura.braventra.in';
 const API_ENDPOINT: string = `${BASE_URL}/api/services`;
 // ----------------------------------------
 

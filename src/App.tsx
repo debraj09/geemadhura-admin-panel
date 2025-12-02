@@ -11,6 +11,7 @@ import Certifications from "./pages/Certifications";
 import FAQ from "./pages/FAQ";
 import LatestUpdates from "./pages/LatestUpdates";
 import Testimonial from "./pages/Testimonial";
+import Blogs from "./pages/Blogs";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/news" element={<LatestUpdates />} />
           <Route path="/certifications" element={<Certifications />} />
           <Route path="/testimonials" element={<Testimonial />} />
+          <Route path="/blogs" element={<Blogs />} />
           <Route path="/updates" element={<NotFound />} />
           <Route path="/doctors" element={<NotFound />} />
           <Route path="/equipment" element={<NotFound />} />

@@ -104,6 +104,14 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 Testimonials
               </NavLink>
               <NavLink
+                to="/blogs"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                activeClassName="bg-muted font-medium"
+              >
+                <span className="text-muted-foreground">💬</span>
+                Blogs
+              </NavLink>
+              <NavLink
                 to="/updates"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"
@@ -188,7 +196,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               </div>
 
               {/* Blog section */}
-              <div className="pt-4">
+              {/* <div className="pt-4">
                 <button
                   onClick={() => setBlogExpanded(!blogExpanded)}
                   className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
@@ -226,7 +234,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </NavLink>
                   </div>
                 )}
-              </div>
+              </div> */}
             </nav>
           </div>
         </aside>

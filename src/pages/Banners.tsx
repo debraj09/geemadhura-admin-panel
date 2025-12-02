@@ -34,7 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress"; 
 
 // --- Configuration ---
-const API_BASE_URL = 'https://btr.braventra.in/api/banners';
+const API_BASE_URL = 'https://geemadhura.braventra.in/api/banners';
 const ITEMS_PER_PAGE_OPTIONS = [5, 10, 25, 50];
 
 // --- Interfaces ---

@@ -13,7 +13,6 @@ import LatestUpdates from "./pages/LatestUpdates";
 import Testimonial from "./pages/Testimonial";
 import Blogs from "./pages/Blogs";
 import Courses from "./pages/Courses";
-import Resources from "./pages/Resources";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -39,7 +38,6 @@ const App = () => (
           <Route path="/equipment" element={<NotFound />} />
           <Route path="/posts" element={<NotFound />} />
           <Route path="/courses" element ={<Courses />} />
-          <Route path="/resources" element ={<Resources />} />
           <Route path="/categories" element={<NotFound />} />
           <Route path="/authors" element={<NotFound />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

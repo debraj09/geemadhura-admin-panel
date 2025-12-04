@@ -120,14 +120,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 Courses
               </NavLink>
               <NavLink
-                to="/resources"
-                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
-                activeClassName="bg-muted font-medium"
-              >
-                <span className="text-muted-foreground">💬</span>
-                Resources
-              </NavLink>
-              <NavLink
                 to="/updates"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"

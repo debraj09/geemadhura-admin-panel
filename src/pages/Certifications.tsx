@@ -2,28 +2,43 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
     ChevronRight, FileText, Check, X, Search, Edit, Plus, ChevronUp,
     ChevronDown, Loader2, AlertCircle, Trash2, ToggleLeft, ToggleRight,
-    RotateCcw, Upload, Save
+    RotateCcw, Upload, Save, GripVertical, ArrowUpDown
 } from 'lucide-react';
 import AdminLayout from "@/components/layout/AdminLayout";
+// Import DnD Kit components
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
-// --- TYPESCRIPT INTERFACES ---
-
-/** Defines the structure of a Service object returned from the API. */
+// --- UPDATED TYPESCRIPT INTERFACES ---
 interface Service {
     id: number;
     name: string;
     image_url: string | null;
     is_active: boolean;
     created_at: string;
+    display_order: number;
 }
 
-/** Defines the structure for the table sorting state. */
 interface SortConfig {
     key: keyof Service | null;
     direction: 'ascending' | 'descending';
 }
 
-/** Defines the props for the SortableHeader component. */
 interface SortableHeaderProps {
     label: string;
     sortKey: keyof Service;
@@ -31,7 +46,6 @@ interface SortableHeaderProps {
     requestSort: (key: keyof Service) => void;
 }
 
-/** Defines the structure of the data to be submitted for a new service. */
 interface ServiceFormData {
     serviceName: string;
     description: string;
@@ -50,15 +64,127 @@ const BASE_URL: string = 'https://geemadhura.braventra.in';
 const API_ENDPOINT: string = `${BASE_URL}/api/services`;
 // ----------------------------------------
 
-// --- UTILITY FUNCTIONS ---
+// --- Sortable Table Row Component ---
+const SortableTableRow: React.FC<{
+    service: Service;
+    index: number;
+    selectedRows: Record<number, boolean>;
+    toggleRowSelection: (id: number) => void;
+    handleToggleActiveStatus: (id: number, currentStatus: boolean) => void;
+    handleDeleteService: (id: number, name: string) => void;
+    isDragging?: boolean;
+}> = ({ 
+    service, 
+    index, 
+    selectedRows, 
+    toggleRowSelection, 
+    handleToggleActiveStatus, 
+    handleDeleteService,
+    isDragging 
+}) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging: isRowDragging } = useSortable({ id: service.id });
 
-/** Converts a string to a URL-friendly slug. */
-const slugify = (text: string): string => {
-    return text.toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isRowDragging ? 0.5 : 1,
+        backgroundColor: isRowDragging ? '#f3f4f6' : 'white',
+    };
+
+    return (
+        <tr ref={setNodeRef} style={style} className="hover:bg-gray-50 transition duration-150">
+            {/* Drag Handle */}
+            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-400 cursor-move" {...attributes} {...listeners}>
+                <GripVertical size={16} className="hover:text-gray-600" />
+            </td>
+
+            {/* Selection Checkbox */}
+            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                <input
+                    type="checkbox"
+                    checked={!!selectedRows[service.id]}
+                    onChange={() => toggleRowSelection(service.id)}
+                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+            </td>
+
+            {/* Order Number */}
+            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center font-medium">
+                {service.display_order || index + 1}
+            </td>
+
+            {/* ID */}
+            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                {service.id}
+            </td>
+
+            {/* Name */}
+            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                {service.name}
+            </td>
+
+            {/* Image */}
+            <td className="px-3 py-4 whitespace-nowrap">
+                <img
+                    className="w-16 h-10 object-cover rounded-md shadow-sm"
+                    src={service.image_url ? `${BASE_URL}${service.image_url}` : "https://placehold.co/80x50/cccccc/000000?text=No+Image"}
+                    alt={`Image for ${service.name}`}
+                    onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = "https://placehold.co/80x50/cccccc/000000?text=N/A";
+                    }}
+                />
+            </td>
+
+            {/* Active Status */}
+            <td className="px-3 py-4 whitespace-nowrap text-center text-sm">
+                {service.is_active ? (
+                    <span title="Active">
+                        <Check size={20} className="text-green-500 mx-auto" />
+                    </span>
+                ) : (
+                    <span title="Inactive">
+                        <X size={20} className="text-red-500 mx-auto" />
+                    </span>
+                )}
+            </td>
+
+            {/* Created At */}
+            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                {new Date(service.created_at).toLocaleDateString()}
+            </td>
+
+            {/* Actions (Toggle, Edit, Delete) */}
+            <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                {/* Toggle Button */}
+                <button
+                    onClick={() => handleToggleActiveStatus(service.id, service.is_active)}
+                    title={service.is_active ? "Mark Inactive" : "Mark Active"}
+                    className={`p-1 rounded-full transition duration-150 ${service.is_active ? 'text-green-600 hover:bg-green-100' : 'text-red-600 hover:bg-red-100'}`}
+                >
+                    {service.is_active ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+                </button>
+
+                {/* Edit Button */}
+                <button
+                    onClick={() => console.log('Editing service:', service.id)}
+                    className="p-1 rounded-full text-blue-600 hover:bg-blue-100 transition duration-150"
+                    title="Edit Service"
+                >
+                    <Edit size={20} />
+                </button>
+
+                {/* Delete Button */}
+                <button
+                    onClick={() => handleDeleteService(service.id, service.name)}
+                    className="p-1 rounded-full text-red-600 hover:bg-red-100 transition duration-150"
+                    title="Delete Service"
+                >
+                    <Trash2 size={20} />
+                </button>
+            </td>
+        </tr>
+    );
 };
 
 // Table Header component for sorting
@@ -73,7 +199,7 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ label, sortKey, sortCon
     return (
         <th
             scope="col"
-            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
+            className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none"
             onClick={() => requestSort(sortKey)}
         >
             <div className="flex items-center">
@@ -84,59 +210,34 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ label, sortKey, sortCon
     );
 };
 
-// Helper component for file upload area
-const FileUploadArea: React.FC<{
-    label: string,
-    name: 'imageFile' | 'bannerImageFile',
-    file: File | null,
-    handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'imageFile' | 'bannerImageFile') => void
-}> = ({ label, name, file, handleFileChange }) => {
-    const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-    const triggerFileSelect = () => {
-        fileInputRef.current?.click();
-    };
-
-    return (
-        <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">{label}*</label>
-            <div
-                onClick={triggerFileSelect}
-                className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition duration-150 h-32"
-            >
-                <Upload size={24} className="text-gray-400 mb-1" />
-                <p className="text-sm text-gray-500">
-                    {file ? `File: ${file.name}` : "Drag & Drop your files or "}
-                    <span className="font-semibold text-blue-600">Browse</span>
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                    {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "(Max file size 2MB)"}
-                </p>
-            </div>
-            <input
-                type="file"
-                ref={fileInputRef}
-                name={name}
-                onChange={(e) => handleFileChange(e, name)}
-                className="hidden"
-                accept="image/*"
-            />
-        </div>
-    );
-};
-
-// --- SERVICE LIST MANAGER COMPONENT ---
+// --- SERVICE LIST MANAGER COMPONENT (UPDATED) ---
 interface ServiceListManagerProps {
     onNavigateToCreate: () => void;
 }
 
 const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCreate }) => {
     const [services, setServices] = useState<Service[]>([]);
+    const [filteredServices, setFilteredServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedRows, setSelectedRows] = useState<Record<number, boolean>>({});
     const [searchTerm, setSearchTerm] = useState<string>('');
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'id', direction: 'descending' });
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'display_order', direction: 'ascending' });
+    const [isReordering, setIsReordering] = useState<boolean>(false);
+    const [savingOrder, setSavingOrder] = useState<boolean>(false);
+    const [showSaveOrderBtn, setShowSaveOrderBtn] = useState<boolean>(false);
+
+    // Initialize DnD sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     // Function to fetch services data from the API
     const fetchServices = useCallback(async () => {
@@ -163,12 +264,18 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
 
                 const mappedData = (result.data || []).map((service: any) => ({
                     ...service,
-                    is_active: Boolean(service.is_active)
+                    is_active: Boolean(service.is_active),
+                    display_order: service.display_order || 0
                 }));
 
-                setServices(mappedData);
+                // Sort by display_order initially
+                const sortedData = [...mappedData].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                
+                setServices(sortedData);
+                setFilteredServices(sortedData);
                 setError(null);
                 setLoading(false);
+                setShowSaveOrderBtn(false);
                 return;
             } catch (err) {
                 const errorMessage = err instanceof Error ? err.message : String(err);
@@ -187,6 +294,20 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
     useEffect(() => {
         fetchServices();
     }, [fetchServices]);
+
+    // Filter services based on search term
+    useEffect(() => {
+        if (!searchTerm.trim()) {
+            setFilteredServices(services);
+            return;
+        }
+
+        const filtered = services.filter(service =>
+            service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            service.id.toString().includes(searchTerm)
+        );
+        setFilteredServices(filtered);
+    }, [searchTerm, services]);
 
     // 1. Delete Service
     const handleDeleteService = async (serviceId: number, serviceName: string) => {
@@ -208,6 +329,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
             if (result.status === 200) {
                 setServices(prevServices => prevServices.filter(service => service.id !== serviceId));
                 alert(`Service "${serviceName}" deleted successfully!`);
+                fetchServices(); // Refresh to recalculate order
             } else {
                 throw new Error(result.error || 'Failed to delete service.');
             }
@@ -250,6 +372,89 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         }
     };
 
+    // 3. Handle Drag End (Reorder)
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (active.id !== over?.id) {
+            setServices((items) => {
+                const oldIndex = items.findIndex((item) => item.id === active.id);
+                const newIndex = items.findIndex((item) => item.id === over?.id);
+                
+                const newItems = arrayMove(items, oldIndex, newIndex);
+                
+                // Update display_order in local state
+                const updatedItems = newItems.map((item, index) => ({
+                    ...item,
+                    display_order: index + 1
+                }));
+                
+                setShowSaveOrderBtn(true);
+                return updatedItems;
+            });
+        }
+    };
+
+    // 4. Save New Order to Backend
+    const saveNewOrder = async () => {
+        setSavingOrder(true);
+        try {
+            const response = await fetch(`${API_ENDPOINT}/update-order`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reorderedServices: services.map((service, index) => ({
+                        id: service.id,
+                        display_order: index + 1
+                    }))
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.status === 200) {
+                alert('Service order saved successfully!');
+                setShowSaveOrderBtn(false);
+                fetchServices(); // Refresh to get updated order from DB
+            } else {
+                throw new Error(result.error || 'Failed to save order.');
+            }
+
+        } catch (err) {
+            console.error('Save order error:', err);
+            alert(`Error: ${err instanceof Error ? err.message : 'Failed to save new order.'}`);
+        } finally {
+            setSavingOrder(false);
+        }
+    };
+
+    // 5. Reset to Original Order
+    const resetOrder = () => {
+        if (window.confirm('Reset to original saved order? Any unsaved changes will be lost.')) {
+            fetchServices();
+            setShowSaveOrderBtn(false);
+        }
+    };
+
+    // 6. Toggle Reordering Mode
+    const toggleReordering = () => {
+        setIsReordering(!isReordering);
+        if (isReordering && showSaveOrderBtn) {
+            if (window.confirm('You have unsaved order changes. Exit without saving?')) {
+                fetchServices();
+                setShowSaveOrderBtn(false);
+            } else {
+                setIsReordering(true);
+            }
+        }
+    };
+
     // Handle single row selection
     const toggleRowSelection = (id: number) => {
         setSelectedRows(prev => ({
@@ -280,11 +485,11 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         setSortConfig({ key, direction });
     };
 
-    // Sorting logic (Memoized)
-    const sortedServices: Service[] = useMemo(() => {
+    // Sorting logic
+    const sortedServices = useMemo(() => {
         if (loading || error) return [];
 
-        let sortableItems = [...services];
+        let sortableItems = [...filteredServices];
         const key = sortConfig.key;
 
         if (key !== null) {
@@ -302,20 +507,14 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
             });
         }
         return sortableItems;
-    }, [services, sortConfig, loading, error]);
-
-    // Filter services based on search term
-    const filteredServices: Service[] = sortedServices.filter(service =>
-        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        service.id.toString().includes(searchTerm)
-    );
+    }, [filteredServices, sortConfig, loading, error]);
 
     // Conditional Content Rendering
     const renderTableContent = () => {
         if (loading) {
             return (
                 <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-blue-600 text-lg">
+                    <td colSpan={10} className="px-6 py-12 text-center text-blue-600 text-lg">
                         <Loader2 className="w-6 h-6 animate-spin inline-block mr-2" /> Loading certifications...
                     </td>
                 </tr>
@@ -325,7 +524,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         if (error) {
             return (
                 <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-red-600 text-lg bg-red-50">
+                    <td colSpan={10} className="px-6 py-12 text-center text-red-600 text-lg bg-red-50">
                         <AlertCircle className="w-6 h-6 inline-block mr-2" /> {error}
                     </td>
                 </tr>
@@ -335,18 +534,49 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         if (filteredServices.length === 0) {
             return (
                 <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-500 text-lg">
+                    <td colSpan={10} className="px-6 py-8 text-center text-gray-500 text-lg">
                         No certifications found matching your search criteria.
                     </td>
                 </tr>
             );
         }
 
-        return filteredServices.map((service: Service) => (
+        if (isReordering) {
+            return (
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <SortableContext
+                        items={services.map(s => s.id)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        {services.map((service, index) => (
+                            <SortableTableRow
+                                key={service.id}
+                                service={service}
+                                index={index}
+                                selectedRows={selectedRows}
+                                toggleRowSelection={toggleRowSelection}
+                                handleToggleActiveStatus={handleToggleActiveStatus}
+                                handleDeleteService={handleDeleteService}
+                            />
+                        ))}
+                    </SortableContext>
+                </DndContext>
+            );
+        }
+
+        return sortedServices.map((service, index) => (
             <tr key={service.id} className="hover:bg-gray-50 transition duration-150">
+                {/* Empty drag handle cell when not reordering */}
+                <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-300">
+                    <GripVertical size={16} />
+                </td>
 
                 {/* Selection Checkbox */}
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td className="px-3 py-4 whitespace-nowrap text-sm font-medium">
                     <input
                         type="checkbox"
                         checked={!!selectedRows[service.id]}
@@ -355,18 +585,23 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                     />
                 </td>
 
+                {/* Order Number */}
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center font-medium">
+                    {service.display_order || index + 1}
+                </td>
+
                 {/* ID */}
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                     {service.id}
                 </td>
 
                 {/* Name */}
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                     {service.name}
                 </td>
 
                 {/* Image */}
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-3 py-4 whitespace-nowrap">
                     <img
                         className="w-16 h-10 object-cover rounded-md shadow-sm"
                         src={service.image_url ? `${BASE_URL}${service.image_url}` : "https://placehold.co/80x50/cccccc/000000?text=No+Image"}
@@ -379,7 +614,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                 </td>
 
                 {/* Active Status */}
-                <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                <td className="px-3 py-4 whitespace-nowrap text-center text-sm">
                     {service.is_active ? (
                         <span title="Active">
                             <Check size={20} className="text-green-500 mx-auto" />
@@ -392,12 +627,12 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                 </td>
 
                 {/* Created At */}
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                     {new Date(service.created_at).toLocaleDateString()}
                 </td>
 
                 {/* Actions (Toggle, Edit, Delete) */}
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                     {/* Toggle Button */}
                     <button
                         onClick={() => handleToggleActiveStatus(service.id, service.is_active)}
@@ -431,26 +666,80 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
 
     return (
         <>
-            {/* Header and Action Button */}
+            {/* Header and Action Buttons */}
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-800">Certifications</h1>
                 <div className="flex space-x-3">
+                    {/* Reorder Toggle Button */}
+                    <button
+                        onClick={toggleReordering}
+                        className={`flex items-center ${isReordering ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-purple-600 hover:bg-purple-700'} text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out`}
+                        disabled={loading || savingOrder}
+                    >
+                        <ArrowUpDown size={18} className="mr-1" />
+                        {isReordering ? 'Exit Reorder' : 'Reorder Items'}
+                    </button>
+
+                    {/* Save Order Button (only shown during reordering with changes) */}
+                    {showSaveOrderBtn && isReordering && (
+                        <button
+                            onClick={saveNewOrder}
+                            className="flex items-center bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
+                            disabled={savingOrder}
+                        >
+                            {savingOrder ? (
+                                <Loader2 size={18} className="animate-spin mr-1" />
+                            ) : (
+                                <Save size={18} className="mr-1" />
+                            )}
+                            {savingOrder ? 'Saving...' : 'Save New Order'}
+                        </button>
+                    )}
+
+                    {/* Reset Order Button (only shown during reordering with changes) */}
+                    {showSaveOrderBtn && isReordering && (
+                        <button
+                            onClick={resetOrder}
+                            className="flex items-center bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
+                            disabled={savingOrder}
+                        >
+                            <RotateCcw size={18} className="mr-1" />
+                            Reset Order
+                        </button>
+                    )}
+
                     {/* Refresh Button */}
                     <button
                         onClick={fetchServices}
                         className="flex items-center bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
-                        disabled={loading}
+                        disabled={loading || savingOrder}
                     >
                         <RotateCcw size={18} className={`mr-1 ${loading ? 'animate-spin' : ''}`} /> Refresh
                     </button>
+
                     {/* New Service Button */}
                     <button
                         onClick={onNavigateToCreate}
-                        className="flex items-center bg-[#0c6e8e] hover:bg-[#085a73] text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"                    >
-                      New certification
+                        className="flex items-center bg-[#0c6e8e] hover:bg-[#085a73] text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
+                        disabled={isReordering}
+                    >
+                        <Plus size={18} className="mr-1" />
+                        New certification
                     </button>
                 </div>
             </div>
+
+            {/* Reordering Instructions Banner */}
+            {isReordering && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center">
+                        <GripVertical className="text-blue-500 mr-2" />
+                        <p className="text-blue-700">
+                            <strong>Drag and drop</strong> items to reorder. Click <strong>"Save New Order"</strong> to save changes or <strong>"Exit Reorder"</strong> to cancel.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content Card (Table Container) */}
             <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
@@ -464,6 +753,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                             value={searchTerm}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
+                            disabled={isReordering}
                         />
                     </div>
                 </div>
@@ -473,27 +763,36 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
+                                {/* Drag Handle Header */}
+                                <th scope="col" className="px-3 py-3 w-1/12 text-center">
+                                    <span className="sr-only">Drag</span>
+                                </th>
+
                                 {/* Checkbox Column */}
-                                <th scope="col" className="px-6 py-3 w-1/12">
+                                <th scope="col" className="px-3 py-3 w-1/12">
                                     <input
                                         type="checkbox"
                                         checked={filteredServices.length > 0 && filteredServices.every(service => selectedRows[service.id])}
                                         onChange={toggleSelectAll}
                                         className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                        disabled={isReordering}
                                     />
                                 </th>
+
+                                {/* Order Column */}
+                                <SortableHeader label="Order" sortKey="display_order" sortConfig={sortConfig} requestSort={requestSort} />
 
                                 <SortableHeader label="Id" sortKey="id" sortConfig={sortConfig} requestSort={requestSort} />
                                 <SortableHeader label="Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
 
-                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Image
                                 </th>
 
                                 <SortableHeader label="Active" sortKey="is_active" sortConfig={sortConfig} requestSort={requestSort} />
                                 <SortableHeader label="Created at" sortKey="created_at" sortConfig={sortConfig} requestSort={requestSort} />
 
-                                <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
                                 </th>
                             </tr>
@@ -507,14 +806,62 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                 {/* Footer/Pagination Placeholder */}
                 <div className="p-4 border-t border-gray-200 text-sm text-gray-600 flex justify-between items-center">
                     <span>Showing {filteredServices.length} of {services.length} certifications</span>
+                    {isReordering && (
+                        <span className="text-blue-600 font-medium">
+                            Drag and drop mode active
+                        </span>
+                    )}
                 </div>
             </div>
         </>
     );
 };
 
-// --- SERVICE CREATE MANAGER COMPONENT ---
+// [Rest of your ServiceFormManager and App component remains the same]
+// ... (Keep the existing ServiceFormManager and App component code)
 
+// Helper component for file upload area
+const FileUploadArea: React.FC<{
+    label: string,
+    name: 'imageFile' | 'bannerImageFile',
+    file: File | null,
+    handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'imageFile' | 'bannerImageFile') => void
+}> = ({ label, name, file, handleFileChange }) => {
+    const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    const triggerFileSelect = () => {
+        fileInputRef.current?.click();
+    };
+
+    return (
+        <div className="flex flex-col">
+            <label className="text-sm font-medium text-gray-700 mb-1">{label}*</label>
+            <div
+                onClick={triggerFileSelect}
+                className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition duration-150 h-32"
+            >
+                <Upload size={24} className="text-gray-400 mb-1" />
+                <p className="text-sm text-gray-500">
+                    {file ? `File: ${file.name}` : "Drag & Drop your files or "}
+                    <span className="font-semibold text-blue-600">Browse</span>
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                    {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "(Max file size 2MB)"}
+                </p>
+            </div>
+            <input
+                type="file"
+                ref={fileInputRef}
+                name={name}
+                onChange={(e) => handleFileChange(e, name)}
+                className="hidden"
+                accept="image/*"
+            />
+        </div>
+    );
+};
+
+// --- SERVICE CREATE MANAGER COMPONENT (SAME AS BEFORE) ---
 interface ServiceFormManagerProps {
     onNavigateBack: (shouldRefresh: boolean) => void;
 }

@@ -14,6 +14,7 @@ import Testimonial from "./pages/Testimonial";
 import Blogs from "./pages/Blogs";
 import Courses from "./pages/Courses";
 import Resources from "./pages/Resources";
+import ManageCertifications from "./pages/ManageCertifications";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -32,6 +33,7 @@ const App = () => (
           <Route path="/faq" element={<FAQ />} />
           <Route path="/news" element={<LatestUpdates />} />
           <Route path="/certifications" element={<Certifications />} />
+          <Route path="/managecertifications" element={<ManageCertifications />} />
           <Route path="/testimonials" element={<Testimonial />} />
           <Route path="/blogs" element={<Blogs />} />
           <Route path="/updates" element={<NotFound />} />

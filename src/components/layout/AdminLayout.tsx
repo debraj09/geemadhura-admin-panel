@@ -96,6 +96,14 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 Certifications
               </NavLink>
               <NavLink
+                to="/managecertifications"
+                className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
+                activeClassName="bg-muted font-medium"
+              >
+                <span className="text-muted-foreground">🔧</span>
+                Manage Certifications
+              </NavLink>
+              <NavLink
                 to="/testimonials"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"

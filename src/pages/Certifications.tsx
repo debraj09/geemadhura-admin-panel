@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
     ChevronRight, FileText, Check, X, Search, Edit, Plus, ChevronUp,
     ChevronDown, Loader2, AlertCircle, Trash2, ToggleLeft, ToggleRight,
-    RotateCcw, Upload, Save, GripVertical, ArrowUpDown
+    RotateCcw, Upload, Save, GripVertical, ArrowUpDown, ArrowLeft
 } from 'lucide-react';
 import AdminLayout from "@/components/layout/AdminLayout";
+
 // Import DnD Kit components
 import {
     DndContext,
@@ -28,7 +29,15 @@ import { CSS } from '@dnd-kit/utilities';
 interface Service {
     id: number;
     name: string;
+    slug: string;
+    description: string;
+    scope_title: string;
+    scope_content: string;
+    meta_title: string;
+    meta_keyword: string;
+    meta_description: string;
     image_url: string | null;
+    banner_image_url: string | null;
     is_active: boolean;
     created_at: string;
     display_order: number;
@@ -57,12 +66,186 @@ interface ServiceFormData {
     imageFile: File | null;
     bannerImageFile: File | null;
     active: boolean;
+    slug: string;
 }
 
 // --- DYNAMIC BASE URL CONFIGURATION ---
 const BASE_URL: string = 'https://geemadhura.braventra.in';
 const API_ENDPOINT: string = `${BASE_URL}/api/services`;
 // ----------------------------------------
+
+// --- Lightweight Rich Text Editor Component ---
+interface RichTextEditorProps {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    height?: string;
+    className?: string;
+}
+
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
+    value, 
+    onChange, 
+    placeholder = "Start typing...",
+    height = "200px",
+    className = ""
+}) => {
+    const editorRef = useRef<HTMLDivElement>(null);
+    const [isFocused, setIsFocused] = useState(false);
+    const [showToolbar, setShowToolbar] = useState(false);
+
+    // Initialize editor content
+    useEffect(() => {
+        if (editorRef.current && !isFocused && editorRef.current.innerHTML !== value) {
+            editorRef.current.innerHTML = value || '';
+        }
+    }, [value, isFocused]);
+
+    const handleInput = () => {
+        if (editorRef.current) {
+            const newValue = editorRef.current.innerHTML;
+            onChange(newValue);
+        }
+    };
+
+    const execCommand = (command: string, value?: string) => {
+        document.execCommand(command, false, value);
+        handleInput();
+        editorRef.current?.focus();
+        setShowToolbar(true);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        // Show toolbar when user starts typing
+        if (e.key.length === 1) { // Any character key
+            setShowToolbar(true);
+        }
+    };
+
+    const clearFormatting = () => {
+        execCommand('removeFormat');
+    };
+
+    const insertLink = () => {
+        const url = prompt('Enter URL:', 'https://');
+        if (url) {
+            execCommand('createLink', url);
+        }
+    };
+
+    return (
+        <div className={`border border-gray-300 rounded-lg overflow-hidden ${className}`}>
+            {/* Toolbar */}
+            <div className={`bg-gray-50 border-b border-gray-300 p-2 transition-all duration-200 ${showToolbar ? 'opacity-100 h-auto' : 'opacity-0 h-0 overflow-hidden border-0'}`}>
+                <div className="flex flex-wrap gap-1 items-center">
+                    {/* Formatting buttons */}
+                    <div className="flex items-center space-x-1 mr-2">
+                        <button
+                            type="button"
+                            onClick={() => execCommand('bold')}
+                            className="px-3 py-1.5 text-sm font-bold border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Bold (Ctrl+B)"
+                        >
+                            <strong>B</strong>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => execCommand('italic')}
+                            className="px-3 py-1.5 text-sm italic border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Italic (Ctrl+I)"
+                        >
+                            <em>I</em>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => execCommand('underline')}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Underline (Ctrl+U)"
+                        >
+                            <u>U</u>
+                        </button>
+                    </div>
+
+                    {/* Lists */}
+                    <div className="flex items-center space-x-1 mr-2">
+                        <button
+                            type="button"
+                            onClick={() => execCommand('insertUnorderedList')}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Bullet List"
+                        >
+                            • List
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => execCommand('insertOrderedList')}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Numbered List"
+                        >
+                            1. List
+                        </button>
+                    </div>
+
+                    {/* Links and Clear */}
+                    <div className="flex items-center space-x-1">
+                        <button
+                            type="button"
+                            onClick={insertLink}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Insert Link"
+                        >
+                            🔗 Link
+                        </button>
+                        <button
+                            type="button"
+                            onClick={clearFormatting}
+                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                            title="Clear Formatting"
+                        >
+                            🧹 Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Editor Area */}
+            <div
+                ref={editorRef}
+                contentEditable
+                onInput={handleInput}
+                onFocus={() => {
+                    setIsFocused(true);
+                    setShowToolbar(true);
+                }}
+                onBlur={() => setIsFocused(false)}
+                onKeyDown={handleKeyDown}
+                onClick={() => setShowToolbar(true)}
+                className="p-4 focus:outline-none overflow-y-auto bg-white"
+                style={{ 
+                    height,
+                    minHeight: height
+                }}
+                data-placeholder={placeholder}
+                dangerouslySetInnerHTML={{ __html: value || '' }}
+            />
+            
+            {/* Placeholder when empty */}
+            {!value && !isFocused && (
+                <div 
+                    className="absolute top-12 left-4 text-gray-400 pointer-events-none cursor-text"
+                    onClick={() => editorRef.current?.focus()}
+                >
+                    {placeholder}
+                </div>
+            )}
+            
+            {/* Character count */}
+            <div className="text-xs text-gray-500 px-4 py-2 border-t border-gray-200 bg-gray-50">
+                {value ? `Characters: ${value.replace(/<[^>]*>/g, '').length}` : 'Start typing...'}
+            </div>
+        </div>
+    );
+};
 
 // --- Sortable Table Row Component ---
 const SortableTableRow: React.FC<{
@@ -72,6 +255,7 @@ const SortableTableRow: React.FC<{
     toggleRowSelection: (id: number) => void;
     handleToggleActiveStatus: (id: number, currentStatus: boolean) => void;
     handleDeleteService: (id: number, name: string) => void;
+    handleEditService: (id: number) => void;
     isDragging?: boolean;
 }> = ({ 
     service, 
@@ -80,6 +264,7 @@ const SortableTableRow: React.FC<{
     toggleRowSelection, 
     handleToggleActiveStatus, 
     handleDeleteService,
+    handleEditService,
     isDragging 
 }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging: isRowDragging } = useSortable({ id: service.id });
@@ -167,7 +352,7 @@ const SortableTableRow: React.FC<{
 
                 {/* Edit Button */}
                 <button
-                    onClick={() => console.log('Editing service:', service.id)}
+                    onClick={() => handleEditService(service.id)}
                     className="p-1 rounded-full text-blue-600 hover:bg-blue-100 transition duration-150"
                     title="Edit Service"
                 >
@@ -213,9 +398,10 @@ const SortableHeader: React.FC<SortableHeaderProps> = ({ label, sortKey, sortCon
 // --- SERVICE LIST MANAGER COMPONENT (UPDATED) ---
 interface ServiceListManagerProps {
     onNavigateToCreate: () => void;
+    onNavigateToEdit: (id: number) => void;
 }
 
-const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCreate }) => {
+const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCreate, onNavigateToEdit }) => {
     const [services, setServices] = useState<Service[]>([]);
     const [filteredServices, setFilteredServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -372,7 +558,12 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         }
     };
 
-    // 3. Handle Drag End (Reorder)
+    // 3. Handle Edit Service
+    const handleEditService = (serviceId: number) => {
+        onNavigateToEdit(serviceId);
+    };
+
+    // 4. Handle Drag End (Reorder)
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
 
@@ -395,7 +586,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         }
     };
 
-    // 4. Save New Order to Backend
+    // 5. Save New Order to Backend
     const saveNewOrder = async () => {
         setSavingOrder(true);
         try {
@@ -434,7 +625,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         }
     };
 
-    // 5. Reset to Original Order
+    // 6. Reset to Original Order
     const resetOrder = () => {
         if (window.confirm('Reset to original saved order? Any unsaved changes will be lost.')) {
             fetchServices();
@@ -442,7 +633,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         }
     };
 
-    // 6. Toggle Reordering Mode
+    // 7. Toggle Reordering Mode
     const toggleReordering = () => {
         setIsReordering(!isReordering);
         if (isReordering && showSaveOrderBtn) {
@@ -515,7 +706,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
             return (
                 <tr>
                     <td colSpan={10} className="px-6 py-12 text-center text-blue-600 text-lg">
-                        <Loader2 className="w-6 h-6 animate-spin inline-block mr-2" /> Loading certifications...
+                        <Loader2 className="w-6 h-6 animate-spin inline-block mr-2" /> Loading services...
                     </td>
                 </tr>
             );
@@ -561,6 +752,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                                 toggleRowSelection={toggleRowSelection}
                                 handleToggleActiveStatus={handleToggleActiveStatus}
                                 handleDeleteService={handleDeleteService}
+                                handleEditService={handleEditService}
                             />
                         ))}
                     </SortableContext>
@@ -644,7 +836,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
 
                     {/* Edit Button */}
                     <button
-                        onClick={() => console.log('Editing service:', service.id)}
+                        onClick={() => handleEditService(service.id)}
                         className="p-1 rounded-full text-blue-600 hover:bg-blue-100 transition duration-150"
                         title="Edit Service"
                     >
@@ -668,7 +860,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         <>
             {/* Header and Action Buttons */}
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Certifications</h1>
+                <h1 className="text-3xl font-bold text-gray-800">Services</h1>
                 <div className="flex space-x-3">
                     {/* Reorder Toggle Button */}
                     <button
@@ -749,7 +941,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Search certifications..."
+                            placeholder="Search services..."
                             value={searchTerm}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
@@ -817,16 +1009,14 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
     );
 };
 
-// [Rest of your ServiceFormManager and App component remains the same]
-// ... (Keep the existing ServiceFormManager and App component code)
-
 // Helper component for file upload area
 const FileUploadArea: React.FC<{
     label: string,
     name: 'imageFile' | 'bannerImageFile',
     file: File | null,
+    currentImage: string | null,
     handleFileChange: (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'imageFile' | 'bannerImageFile') => void
-}> = ({ label, name, file, handleFileChange }) => {
+}> = ({ label, name, file, currentImage, handleFileChange }) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const triggerFileSelect = () => {
@@ -835,19 +1025,35 @@ const FileUploadArea: React.FC<{
 
     return (
         <div className="flex flex-col">
-            <label className="text-sm font-medium text-gray-700 mb-1">{label}*</label>
+            <label className="text-sm font-medium text-gray-700 mb-1">
+                {label}
+                {name === 'imageFile' && <span className="text-red-500 ml-1">*</span>}
+            </label>
             <div
                 onClick={triggerFileSelect}
                 className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 transition duration-150 h-32"
             >
-                <Upload size={24} className="text-gray-400 mb-1" />
-                <p className="text-sm text-gray-500">
-                    {file ? `File: ${file.name}` : "Drag & Drop your files or "}
-                    <span className="font-semibold text-blue-600">Browse</span>
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                    {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "(Max file size 2MB)"}
-                </p>
+                {currentImage && !file ? (
+                    <>
+                        <img
+                            src={`${BASE_URL}${currentImage}`}
+                            alt="Current"
+                            className="h-16 w-auto mb-2 object-contain"
+                        />
+                        <p className="text-xs text-gray-500">Click to change image</p>
+                    </>
+                ) : (
+                    <>
+                        <Upload size={24} className="text-gray-400 mb-1" />
+                        <p className="text-sm text-gray-500">
+                            {file ? `File: ${file.name}` : "Drag & Drop your files or "}
+                            <span className="font-semibold text-blue-600">Browse</span>
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                            {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "(Max file size 2MB)"}
+                        </p>
+                    </>
+                )}
             </div>
             <input
                 type="file"
@@ -861,12 +1067,13 @@ const FileUploadArea: React.FC<{
     );
 };
 
-// --- SERVICE CREATE MANAGER COMPONENT (SAME AS BEFORE) ---
+// --- SERVICE CREATE MANAGER COMPONENT ---
 interface ServiceFormManagerProps {
     onNavigateBack: (shouldRefresh: boolean) => void;
+    serviceId?: number;
 }
 
-const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack }) => {
+const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack, serviceId }) => {
     const [formData, setFormData] = useState<ServiceFormData>({
         serviceName: '',
         description: '',
@@ -878,10 +1085,56 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
         imageFile: null,
         bannerImageFile: null,
         active: true,
+        slug: '',
     });
 
     const [loading, setLoading] = useState<boolean>(false);
+    const [fetching, setFetching] = useState<boolean>(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [currentService, setCurrentService] = useState<Service | null>(null);
+
+    // Fetch service data when editing
+    useEffect(() => {
+        if (serviceId) {
+            fetchServiceData();
+        }
+    }, [serviceId]);
+
+    const fetchServiceData = async () => {
+        setFetching(true);
+        try {
+            const response = await fetch(`${API_ENDPOINT}/${serviceId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            if (result.status === 200 && result.data) {
+                const service = result.data;
+                setCurrentService(service);
+                
+                // Populate form with existing data
+                setFormData({
+                    serviceName: service.name || '',
+                    description: service.description || '',
+                    scopeTitle: service.scope_title || '',
+                    scopeContent: service.scope_content || '',
+                    metaTitle: service.meta_title || '',
+                    metaKeyword: service.meta_keyword || '',
+                    metaDescription: service.meta_description || '',
+                    imageFile: null,
+                    bannerImageFile: null,
+                    active: Boolean(service.is_active),
+                    slug: service.slug || '',
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching service data:', err);
+            alert(`Error: ${err instanceof Error ? err.message : 'Failed to load service data.'}`);
+        } finally {
+            setFetching(false);
+        }
+    };
 
     // Update form state for text inputs
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -894,6 +1147,19 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
         // Clear error when user starts typing
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
+        }
+    };
+
+    // Handle editor changes
+    const handleEditorChange = (field: 'description' | 'scopeContent' | 'metaDescription') => (value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: value,
+        }));
+
+        // Clear error when user starts typing
+        if (errors[field]) {
+            setErrors(prev => ({ ...prev, [field]: '' }));
         }
     };
 
@@ -934,31 +1200,23 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
             newErrors.serviceName = 'Service name is required';
         }
 
-        if (!formData.description.trim()) {
+        // Remove HTML tags for validation
+        const plainTextDescription = formData.description.replace(/<[^>]*>/g, '').trim();
+        if (!plainTextDescription) {
             newErrors.description = 'Description is required';
         }
 
-        if (!formData.imageFile) {
-            newErrors.imageFile = 'Service image is required';
+        if (!serviceId && !formData.imageFile) {
+            newErrors.imageFile = 'Service image is required for new services';
         }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Submission handler
-    const handleSubmit = useCallback(async (action: 'create' | 'createAndAnother') => {
-        if (!validateForm()) {
-            alert('Please fix the form errors before submitting.');
-            return;
-        }
-
-        setLoading(true);
-        setErrors({});
-
+    // Create service
+    const createService = async () => {
         const dataToSend = new FormData();
-
-        // Append all text fields - matching your backend field names
         dataToSend.append('serviceName', formData.serviceName);
         dataToSend.append('description', formData.description);
         dataToSend.append('scopeTitle', formData.scopeTitle);
@@ -968,7 +1226,6 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
         dataToSend.append('metaDescription', formData.metaDescription);
         dataToSend.append('active', formData.active.toString());
 
-        // Append files - matching your backend field names
         if (formData.imageFile) {
             dataToSend.append('imageUpload', formData.imageFile);
         }
@@ -976,58 +1233,142 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
             dataToSend.append('bannerImageUpload', formData.bannerImageFile);
         }
 
+        const response = await fetch(`${API_ENDPOINT}/create`, {
+            method: 'POST',
+            body: dataToSend,
+        });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+        }
+
+        return await response.json();
+    };
+
+    // Update service
+    const updateService = async () => {
+        const dataToSend = new FormData();
+        dataToSend.append('serviceName', formData.serviceName);
+        dataToSend.append('description', formData.description);
+        dataToSend.append('scopeTitle', formData.scopeTitle);
+        dataToSend.append('scopeContent', formData.scopeContent);
+        dataToSend.append('metaTitle', formData.metaTitle);
+        dataToSend.append('metaKeyword', formData.metaKeyword);
+        dataToSend.append('metaDescription', formData.metaDescription);
+        dataToSend.append('active', formData.active.toString());
+        dataToSend.append('slug', formData.slug || currentService?.slug || '');
+
+        if (formData.imageFile) {
+            dataToSend.append('imageUpload', formData.imageFile);
+        }
+        if (formData.bannerImageFile) {
+            dataToSend.append('bannerImageUpload', formData.bannerImageFile);
+        }
+
+        const response = await fetch(`${API_ENDPOINT}/update/${serviceId}`, {
+            method: 'PUT',
+            body: dataToSend,
+        });
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
+        }
+
+        return await response.json();
+    };
+
+    // Submission handler
+    const handleSubmit = useCallback(async (action: 'create' | 'createAndAnother' | 'update') => {
+        if (!validateForm()) {
+            alert('Please fix the form errors before submitting.');
+            return;
+        }
+
+        setLoading(true);
+        setErrors({});
+
         try {
-            const response = await fetch(`${API_ENDPOINT}/create`, {
-                method: 'POST',
-                body: dataToSend,
-            });
-
-            // Check if response is JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
-            }
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || `Failed to create service with status: ${response.status}`);
-            }
-
-            alert(`Service created successfully: ${result.serviceId ? `ID: ${result.serviceId}` : formData.serviceName}`);
-
-            // Handle Post-Submission Action
-            if (action === 'createAndAnother') {
-                // Reset form state for a new entry
-                setFormData({
-                    serviceName: '',
-                    description: '',
-                    scopeTitle: '',
-                    scopeContent: '',
-                    metaTitle: '',
-                    metaKeyword: '',
-                    metaDescription: '',
-                    imageFile: null,
-                    bannerImageFile: null,
-                    active: true,
-                });
+            let result;
+            
+            if (serviceId) {
+                // Update existing service
+                result = await updateService();
+                if (result.status === 200) {
+                    alert(`Service updated successfully!`);
+                    onNavigateBack(true);
+                } else {
+                    throw new Error(result.error || 'Failed to update service.');
+                }
             } else {
-                // Navigate back to the list and refresh
-                onNavigateBack(true);
+                // Create new service
+                result = await createService();
+                if (result.status === 201 || result.status === 200) {
+                    alert(`Service created successfully: ${result.serviceId ? `ID: ${result.serviceId}` : formData.serviceName}`);
+
+                    // Handle Post-Submission Action
+                    if (action === 'createAndAnother') {
+                        // Reset form state for a new entry
+                        setFormData({
+                            serviceName: '',
+                            description: '',
+                            scopeTitle: '',
+                            scopeContent: '',
+                            metaTitle: '',
+                            metaKeyword: '',
+                            metaDescription: '',
+                            imageFile: null,
+                            bannerImageFile: null,
+                            active: true,
+                            slug: '',
+                        });
+                        setCurrentService(null);
+                    } else {
+                        // Navigate back to the list and refresh
+                        onNavigateBack(true);
+                    }
+                } else {
+                    throw new Error(result.error || 'Failed to create service.');
+                }
             }
 
         } catch (err) {
             console.error('Submission error:', err);
-            alert(`Error creating service: ${err instanceof Error ? err.message : 'An unknown error occurred.'}`);
+            alert(`Error ${serviceId ? 'updating' : 'creating'} service: ${err instanceof Error ? err.message : 'An unknown error occurred.'}`);
         } finally {
             setLoading(false);
         }
-    }, [formData, onNavigateBack]);
+    }, [formData, serviceId, onNavigateBack]);
+
+    if (fetching) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="ml-2 text-gray-600">Loading service data...</span>
+            </div>
+        );
+    }
+
+    const title = serviceId ? 'Edit Service' : 'Create Service';
+    const submitButtonText = serviceId ? 'Update Service' : 'Create Service';
 
     return (
         <>
-            <h1 className="text-3xl font-bold text-gray-800 mb-6">Create Service</h1>
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-3xl font-bold text-gray-800">{title}</h1>
+                {serviceId && (
+                    <button
+                        onClick={() => onNavigateBack(false)}
+                        className="flex items-center text-gray-600 hover:text-gray-800"
+                    >
+                        <ArrowLeft size={20} className="mr-1" />
+                        Back to List
+                    </button>
+                )}
+            </div>
 
             <div className="bg-white rounded-xl shadow-2xl p-6 md:p-8">
                 <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
@@ -1055,16 +1396,14 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
                             <label htmlFor="description" className="block text-sm font-medium text-gray-700">
                                 Description*
                             </label>
-                            <textarea
-                                id="description"
-                                name="description"
-                                rows={3}
-                                value={formData.description}
-                                onChange={handleChange}
-                                required
-                                className={`mt-1 block w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none ${errors.description ? 'border-red-500' : 'border-gray-300'
-                                    }`}
-                            />
+                            <div className={`mt-1 ${errors.description ? 'border border-red-500 rounded-lg' : ''}`}>
+                                <RichTextEditor
+                                    value={formData.description}
+                                    onChange={handleEditorChange('description')}
+                                    placeholder="Enter service description..."
+                                    height="250px"
+                                />
+                            </div>
                             {errors.description && (
                                 <p className="mt-1 text-sm text-red-600">{errors.description}</p>
                             )}
@@ -1090,14 +1429,14 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
                             <label htmlFor="scopeContent" className="block text-sm font-medium text-gray-700">
                                 Scope of Work Content
                             </label>
-                            <textarea
-                                id="scopeContent"
-                                name="scopeContent"
-                                rows={3}
-                                value={formData.scopeContent}
-                                onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
-                            />
+                            <div className="mt-1">
+                                <RichTextEditor
+                                    value={formData.scopeContent}
+                                    onChange={handleEditorChange('scopeContent')}
+                                    placeholder="Enter scope of work content..."
+                                    height="250px"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -1131,20 +1470,37 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
                         </div>
                     </div>
 
-                    {/* --- ROW 4: Meta Description --- */}
-                    <div className="grid grid-cols-1 gap-6">
+                    {/* --- ROW 4: Meta Description and Slug --- */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label htmlFor="metaDescription" className="block text-sm font-medium text-gray-700">
                                 Meta Description
                             </label>
-                            <textarea
-                                id="metaDescription"
-                                name="metaDescription"
-                                rows={2}
-                                value={formData.metaDescription}
+                            <div className="mt-1">
+                                <RichTextEditor
+                                    value={formData.metaDescription}
+                                    onChange={handleEditorChange('metaDescription')}
+                                    placeholder="Enter meta description..."
+                                    height="150px"
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label htmlFor="slug" className="block text-sm font-medium text-gray-700">
+                                Slug (URL Friendly Name)
+                            </label>
+                            <input
+                                type="text"
+                                id="slug"
+                                name="slug"
+                                value={formData.slug}
                                 onChange={handleChange}
-                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="auto-generated-from-name"
                             />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Leave empty to auto-generate from service name
+                            </p>
                         </div>
                     </div>
 
@@ -1154,6 +1510,7 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
                             label="Service Image"
                             name="imageFile"
                             file={formData.imageFile}
+                            currentImage={currentService?.image_url || null}
                             handleFileChange={handleFileChange}
                         />
                         {errors.imageFile && (
@@ -1164,6 +1521,7 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
                             label="Banner Image"
                             name="bannerImageFile"
                             file={formData.bannerImageFile}
+                            currentImage={currentService?.banner_image_url || null}
                             handleFileChange={handleFileChange}
                         />
 
@@ -1197,23 +1555,27 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack 
                         >
                             Cancel
                         </button>
+                        
+                        {!serviceId && (
+                            <button
+                                type="button"
+                                onClick={() => handleSubmit('createAndAnother')}
+                                className="flex items-center bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
+                                disabled={loading}
+                            >
+                                <Plus size={18} className="mr-1" />
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create & Another'}
+                            </button>
+                        )}
+                        
                         <button
                             type="button"
-                            onClick={() => handleSubmit('createAndAnother')}
-                            className="flex items-center bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
-                            disabled={loading}
-                        >
-                            <Plus size={18} className="mr-1" />
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create & Another'}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => handleSubmit('create')}
+                            onClick={() => handleSubmit(serviceId ? 'update' : 'create')}
                             className="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-md transition duration-150 ease-in-out"
                             disabled={loading}
                         >
                             <Save size={18} className="mr-1" />
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Service'}
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : submitButtonText}
                         </button>
                     </div>
                 </form>
@@ -1227,27 +1589,41 @@ type ViewMode = 'list' | 'create' | 'edit';
 
 const App: React.FC = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [editServiceId, setEditServiceId] = useState<number | null>(null);
     const [listKey, setListKey] = useState<number>(0);
 
-    const handleNavigateToCreate = () => setViewMode('create');
+    const handleNavigateToCreate = () => {
+        setEditServiceId(null);
+        setViewMode('create');
+    };
+
+    const handleNavigateToEdit = (id: number) => {
+        setEditServiceId(id);
+        setViewMode('edit');
+    };
 
     const handleNavigateBack = (shouldRefresh: boolean) => {
         setViewMode('list');
+        setEditServiceId(null);
         if (shouldRefresh) {
             setListKey(prev => prev + 1);
         }
     };
 
-    const breadcrumbs = useMemo(() => (
-        <div className="flex items-center text-sm text-gray-500 mb-4">
-            <FileText size={16} className="mr-1" />
-            <span>Certifications</span>
-            <ChevronRight size={16} className="mx-1" />
-            <span className="font-medium text-gray-700">
-                {viewMode === 'list' ? 'List' : 'Create'}
-            </span>
-        </div>
-    ), [viewMode]);
+    const breadcrumbs = useMemo(() => {
+        let currentView = 'List';
+        if (viewMode === 'create') currentView = 'Create';
+        if (viewMode === 'edit') currentView = 'Edit';
+
+        return (
+            <div className="flex items-center text-sm text-gray-500 mb-4">
+                <FileText size={16} className="mr-1" />
+                <span>Services</span>
+                <ChevronRight size={16} className="mx-1" />
+                <span className="font-medium text-gray-700">{currentView}</span>
+            </div>
+        );
+    }, [viewMode]);
 
     return (
         <AdminLayout>
@@ -1260,12 +1636,14 @@ const App: React.FC = () => {
                     <ServiceListManager
                         key={listKey}
                         onNavigateToCreate={handleNavigateToCreate}
+                        onNavigateToEdit={handleNavigateToEdit}
                     />
                 )}
 
-                {viewMode === 'create' && (
+                {(viewMode === 'create' || viewMode === 'edit') && (
                     <ServiceFormManager
                         onNavigateBack={handleNavigateBack}
+                        serviceId={editServiceId || undefined}
                     />
                 )}
             </div>

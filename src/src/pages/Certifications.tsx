@@ -316,7 +316,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
             return (
                 <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-blue-600 text-lg">
-                        <Loader2 className="w-6 h-6 animate-spin inline-block mr-2" /> Loading certifications...
+                        <Loader2 className="w-6 h-6 animate-spin inline-block mr-2" /> Loading services...
                     </td>
                 </tr>
             );
@@ -336,7 +336,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
             return (
                 <tr>
                     <td colSpan={8} className="px-6 py-8 text-center text-gray-500 text-lg">
-                        No certifications found matching your search criteria.
+                        No services found matching your search criteria.
                     </td>
                 </tr>
             );
@@ -433,7 +433,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
         <>
             {/* Header and Action Button */}
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-gray-800">Certifications</h1>
+                <h1 className="text-3xl font-bold text-gray-800">Services</h1>
                 <div className="flex space-x-3">
                     {/* Refresh Button */}
                     <button
@@ -460,7 +460,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                             type="text"
-                            placeholder="Search certifications..."
+                            placeholder="Search services..."
                             value={searchTerm}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150"
@@ -894,7 +894,7 @@ const App: React.FC = () => {
     const breadcrumbs = useMemo(() => (
         <div className="flex items-center text-sm text-gray-500 mb-4">
             <FileText size={16} className="mr-1" />
-            <span>Certifications</span>
+            <span>Services</span>
             <ChevronRight size={16} className="mx-1" />
             <span className="font-medium text-gray-700">
                 {viewMode === 'list' ? 'List' : 'Create'}

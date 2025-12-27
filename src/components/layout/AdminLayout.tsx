@@ -63,21 +63,21 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <span className="text-muted-foreground">📷</span>
                 Galleries
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/logos"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">🎨</span>
                 Logos
-              </NavLink>
+              </NavLink> */}
               <NavLink
                 to="/news"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">📰</span>
-                News
+                Update
               </NavLink>
               <NavLink
                 to="/faq"
@@ -93,7 +93,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">🔧</span>
-                Certifications
+                Services
               </NavLink>
               <NavLink
                 to="/managecertifications"
@@ -101,16 +101,16 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">🔧</span>
-                Manage Certifications
+                Manage Services
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/testimonials"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">💬</span>
                 Testimonials
-              </NavLink>
+              </NavLink> */}
               <NavLink
                 to="/blogs"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
@@ -135,14 +135,14 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <span className="text-muted-foreground">💬</span>
                 Resources
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/updates"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">🔔</span>
                 Updates
-              </NavLink>
+              </NavLink> */}
 
               {/* Home section */}
               <div className="pt-4">
@@ -179,7 +179,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               </div>
 
               {/* Management section */}
-              <div className="pt-4">
+              {/* <div className="pt-4">
                 <button
                   onClick={() => setManagementExpanded(!managementExpanded)}
                   className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
@@ -217,7 +217,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </NavLink>
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {/* Blog section */}
               {/* <div className="pt-4">

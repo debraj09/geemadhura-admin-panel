@@ -93,7 +93,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">🔧</span>
-                Certifications
+                Services
               </NavLink>
               <NavLink
                 to="/testimonials"

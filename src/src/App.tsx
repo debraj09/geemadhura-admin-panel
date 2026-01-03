@@ -13,6 +13,7 @@ import LatestUpdates from "./pages/LatestUpdates";
 import Testimonial from "./pages/Testimonial";
 import Blogs from "./pages/Blogs";
 import Courses from "./pages/Courses";
+import ContactLeads from "./pages/ContactLeads";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/posts" element={<NotFound />} />
           <Route path="/courses" element ={<Courses />} />
           <Route path="/categories" element={<NotFound />} />
+<Route path="/manageleads" element={<ContactLeads />} />
           <Route path="/authors" element={<NotFound />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

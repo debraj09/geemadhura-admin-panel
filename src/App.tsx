@@ -15,6 +15,7 @@ import Blogs from "./pages/Blogs";
 import Courses from "./pages/Courses";
 import Resources from "./pages/Resources";
 import ManageCertifications from "./pages/ManageCertifications";
+import ContactLeads from "./pages/ContactLeads";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/resources" element ={<Resources />} />
           <Route path="/categories" element={<NotFound />} />
           <Route path="/authors" element={<NotFound />} />
+          <Route path="/manageleads" element={<ContactLeads />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

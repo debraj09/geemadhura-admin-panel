@@ -1,27 +1,29 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Pencil, Trash2, Loader, CheckCircle } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, Loader, CheckCircle, Upload, Image as ImageIcon } from 'lucide-react';
 import AdminLayout from "@/components/layout/AdminLayout";
 
 // --- Interfaces for Type Safety ---
-
 interface Update {
     id: number;
-    update_date: string; // Stored as YYYY-MM-DD string
+    update_date: string;
     title: string;
     description: string;
+    image_url: string | null;
 }
 
 interface FormState {
     title: string;
     description: string;
     update_date: string;
+    image_url: string | null;
+    image_file: File | null;
 }
 
 // --- Constants ---
-// NOTE: Replace this with your actual API base URL
-const API_BASE_URL = 'https://geemadhura.braventra.in/api/latestUpdates';
+const LATEST_UPDATES_API = 'https://geemadhura.braventra.in/api/latestUpdates';
+const UPLOAD_API = 'https://geemadhura.braventra.in/api/upload/upload';
 
-// --- Utility function for date formatting ---
+// Utility function for date formatting
 const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
         year: 'numeric',
@@ -30,8 +32,7 @@ const formatDate = (dateString: string) => {
     });
 };
 
-// --- Main App Component ---
-
+// Main App Component
 const LatestUpdates: React.FC = () => {
     const [updates, setUpdates] = useState<Update[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -39,7 +40,13 @@ const LatestUpdates: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [isEditMode, setIsEditMode] = useState<boolean>(false);
     const [currentUpdate, setCurrentUpdate] = useState<Update | null>(null);
-    const [formData, setFormData] = useState<FormState>({ title: '', description: '', update_date: new Date().toISOString().split('T')[0] });
+    const [formData, setFormData] = useState<FormState>({ 
+        title: '', 
+        description: '', 
+        update_date: new Date().toISOString().split('T')[0],
+        image_url: null,
+        image_file: null 
+    });
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [toastVisible, setToastVisible] = useState<boolean>(false);
@@ -59,7 +66,7 @@ const LatestUpdates: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const response = await fetch(API_BASE_URL);
+            const response = await fetch(LATEST_UPDATES_API);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -89,11 +96,129 @@ const LatestUpdates: React.FC = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    // Handle image file selection
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        if (file) {
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                setError('Please select a valid image file (JPEG, PNG, GIF, WebP)');
+                return;
+            }
+            
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                setError('Image size should be less than 5MB');
+                return;
+            }
+            
+            setFormData({ 
+                ...formData, 
+                image_file: file,
+                image_url: URL.createObjectURL(file) // Create preview URL
+            });
+            setError(null);
+        }
+    };
+
+    // Remove selected image
+    const removeImage = () => {
+        setFormData({ 
+            ...formData, 
+            image_file: null,
+            image_url: null 
+        });
+    };
+
+    // Function to upload image to your server
+   // Function to upload image to your server
+// Function to upload image to your server
+const uploadImage = async (file: File): Promise<string | null> => {
+    console.log('=== STARTING UPLOAD ===');
+    console.log('File:', file.name, 'Size:', file.size, 'Type:', file.type);
+    
+    try {
+        // First, test if the endpoint is reachable
+        const testResponse = await fetch('/api/upload/test');
+        console.log('Test endpoint status:', testResponse.status);
+        const testResult = await testResponse.json();
+        console.log('Test endpoint result:', testResult);
+        
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        console.log('Sending upload request to /api/upload/upload');
+        
+        const uploadResponse = await fetch('/api/upload/upload', {
+            method: 'POST',
+            body: formData,
+            // Note: Don't set Content-Type header for FormData
+        });
+        
+        console.log('Upload response status:', uploadResponse.status);
+        console.log('Upload response headers:', uploadResponse.headers);
+        
+        // Get response as text first to see what's being returned
+        const responseText = await uploadResponse.text();
+        console.log('Raw response text:', responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+            console.log('Parsed JSON result:', result);
+        } catch (parseError) {
+            console.error('Failed to parse JSON:', parseError);
+            console.error('Response text that failed to parse:', responseText);
+            throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}`);
+        }
+        
+        if (!uploadResponse.ok || !result.success) {
+            console.error('Upload failed with result:', result);
+            throw new Error(result.message || `Upload failed with status ${uploadResponse.status}`);
+        }
+        
+        if (result.imageUrl) {
+            let fullUrl = result.imageUrl;
+            // Make sure we have the full URL
+            if (fullUrl.startsWith('/')) {
+                fullUrl = `https://geemadhura.braventra.in${fullUrl}`;
+            }
+            console.log('Upload successful! URL:', fullUrl);
+            return fullUrl;
+        } else {
+            console.error('No imageUrl in response:', result);
+            throw new Error('Server response missing imageUrl');
+        }
+        
+    } catch (error) {
+        console.error('=== UPLOAD ERROR DETAILS ===');
+        console.error('Error type:', error.constructor.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        
+        // Re-throw with more context
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+            throw new Error('Network error. Check if server is running.');
+        } else if (error instanceof Error) {
+            throw new Error(`Upload failed: ${error.message}`);
+        } else {
+            throw new Error('Unknown upload error occurred');
+        }
+    }
+};
+
     // Open the modal for creating a new update
     const openCreateModal = () => {
         setIsEditMode(false);
         setCurrentUpdate(null);
-        setFormData({ title: '', description: '', update_date: new Date().toISOString().split('T')[0] });
+        setFormData({ 
+            title: '', 
+            description: '', 
+            update_date: new Date().toISOString().split('T')[0],
+            image_url: null,
+            image_file: null 
+        });
         setIsModalOpen(true);
     };
 
@@ -104,8 +229,9 @@ const LatestUpdates: React.FC = () => {
         setFormData({
             title: update.title,
             description: update.description,
-            // Ensure date is in YYYY-MM-DD format for input value
-            update_date: update.update_date.split('T')[0]
+            update_date: update.update_date.split('T')[0],
+            image_url: update.image_url,
+            image_file: null
         });
         setIsModalOpen(true);
     };
@@ -115,30 +241,57 @@ const LatestUpdates: React.FC = () => {
         setIsModalOpen(false);
         setIsEditMode(false);
         setCurrentUpdate(null);
-        setFormData({ title: '', description: '', update_date: new Date().toISOString().split('T')[0] });
+        setFormData({ 
+            title: '', 
+            description: '', 
+            update_date: new Date().toISOString().split('T')[0],
+            image_url: null,
+            image_file: null 
+        });
+        setError(null);
     };
 
-    // 1. CREATE or 4. UPDATE logic
+    // 1. CREATE or 4. UPDATE logic with image upload
     const handleCreateOrUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
         setError(null);
 
         const method = isEditMode ? 'PUT' : 'POST';
-        const url = isEditMode ? `${API_BASE_URL}/${currentUpdate?.id}` : API_BASE_URL;
+        const url = isEditMode ? `${LATEST_UPDATES_API}/${currentUpdate?.id}` : LATEST_UPDATES_API;
 
         // Validation
         if (!formData.title || !formData.description || !formData.update_date) {
-            setError('All fields are required.');
+            setError('Title, description, and date are required.');
             setIsSubmitting(false);
             return;
         }
 
         try {
+            let imageUrl = formData.image_url;
+            
+            // Upload new image if a file was selected
+            if (formData.image_file) {
+                const uploadedUrl = await uploadImage(formData.image_file);
+                if (uploadedUrl) {
+                    imageUrl = uploadedUrl;
+                } else {
+                    throw new Error('Failed to upload image');
+                }
+            }
+
+            // Prepare data for API
+            const apiData = {
+                title: formData.title,
+                description: formData.description,
+                update_date: formData.update_date,
+                image_url: imageUrl
+            };
+
             const response = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData),
+                body: JSON.stringify(apiData),
             });
 
             const result = await response.json();
@@ -172,7 +325,7 @@ const LatestUpdates: React.FC = () => {
         setError(null);
 
         try {
-            const response = await fetch(`${API_BASE_URL}/${id}`, {
+            const response = await fetch(`${LATEST_UPDATES_API}/${id}`, {
                 method: 'DELETE',
             });
 
@@ -191,13 +344,11 @@ const LatestUpdates: React.FC = () => {
             } else {
                 setError('An unknown error occurred during deletion.');
             }
-            setIsLoading(false); // Stop loading if delete failed
+            setIsLoading(false);
         }
     };
 
-
-    // --- Render Functions ---
-
+    // Render Functions
     const renderLoadingAndError = () => {
         if (isLoading) {
             return (
@@ -232,6 +383,7 @@ const LatestUpdates: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -246,6 +398,23 @@ const LatestUpdates: React.FC = () => {
                             </td>
                             <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                                 {update.description}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                                {update.image_url ? (
+                                    <div className="flex items-center">
+                                        <ImageIcon className="h-4 w-4 text-gray-400 mr-2" />
+                                        <img 
+                                            src={update.image_url} 
+                                            alt={update.title}
+                                            className="h-10 w-10 object-cover rounded-md"
+                                            onError={(e) => {
+                                                e.currentTarget.src = 'https://via.placeholder.com/100x100?text=No+Image';
+                                            }}
+                                        />
+                                    </div>
+                                ) : (
+                                    <span className="text-gray-400 text-sm">No image</span>
+                                )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <button
@@ -277,7 +446,7 @@ const LatestUpdates: React.FC = () => {
 
             {/* Modal panel */}
             <div className="flex items-center justify-center min-h-screen p-4">
-                <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg mx-auto transform transition-all p-6">
+                <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-auto transform transition-all p-6">
 
                     {/* Modal Header */}
                     <div className="flex justify-between items-center pb-3 border-b border-gray-200 mb-4">
@@ -304,55 +473,137 @@ const LatestUpdates: React.FC = () => {
                             </div>
                         )}
 
-                        {/* Title Field */}
-                        <div className="mb-4">
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                            <input
-                                type="text"
-                                name="title"
-                                id="title"
-                                value={formData.title}
-                                onChange={handleInputChange}
-                                className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 transition duration-150 border"
-                                placeholder="e.g., New Feature Released: Project Dashboards"
-                                required
-                                disabled={isSubmitting}
-                            />
-                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Left Column - Text Fields */}
+                            <div>
+                                {/* Title Field */}
+                                <div className="mb-4">
+                                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                                    <input
+                                        type="text"
+                                        name="title"
+                                        id="title"
+                                        value={formData.title}
+                                        onChange={handleInputChange}
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 transition duration-150 border"
+                                        placeholder="e.g., New Feature Released: Project Dashboards"
+                                        required
+                                        disabled={isSubmitting}
+                                    />
+                                </div>
 
-                        {/* Description Field */}
-                        <div className="mb-4">
-                            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <textarea
-                                name="description"
-                                id="description"
-                                rows={4}
-                                value={formData.description}
-                                onChange={handleInputChange}
-                                className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 transition duration-150 border resize-none"
-                                placeholder="Describe the update in detail."
-                                required
-                                disabled={isSubmitting}
-                            />
-                        </div>
+                                {/* Description Field */}
+                                <div className="mb-4">
+                                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                                    <textarea
+                                        name="description"
+                                        id="description"
+                                        rows={6}
+                                        value={formData.description}
+                                        onChange={handleInputChange}
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 transition duration-150 border resize-none"
+                                        placeholder="Describe the update in detail."
+                                        required
+                                        disabled={isSubmitting}
+                                    />
+                                </div>
 
-                        {/* Date Field */}
-                        <div className="mb-6">
-                            <label htmlFor="update_date" className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                            <input
-                                type="date"
-                                name="update_date"
-                                id="update_date"
-                                value={formData.update_date}
-                                onChange={handleInputChange}
-                                className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 transition duration-150 border"
-                                required
-                                disabled={isSubmitting}
-                            />
+                                {/* Date Field */}
+                                <div className="mb-4">
+                                    <label htmlFor="update_date" className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                                    <input
+                                        type="date"
+                                        name="update_date"
+                                        id="update_date"
+                                        value={formData.update_date}
+                                        onChange={handleInputChange}
+                                        className="w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 transition duration-150 border"
+                                        required
+                                        disabled={isSubmitting}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Right Column - Image Upload */}
+                            <div>
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Update Image (Optional)</label>
+                                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
+                                        <div className="space-y-1 text-center">
+                                            {formData.image_url || formData.image_file ? (
+                                                <div className="relative">
+                                                    <img
+                                                        src={formData.image_url || URL.createObjectURL(formData.image_file!)}
+                                                        alt="Preview"
+                                                        className="mx-auto h-48 w-full object-cover rounded-md"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={removeImage}
+                                                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                                                    <div className="flex text-sm text-gray-600">
+                                                        <label
+                                                            htmlFor="image-upload"
+                                                            className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+                                                        >
+                                                            <span>Upload a file</span>
+                                                            <input
+                                                                id="image-upload"
+                                                                name="image-upload"
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="sr-only"
+                                                                onChange={handleImageChange}
+                                                                disabled={isSubmitting}
+                                                            />
+                                                        </label>
+                                                        <p className="pl-1">or drag and drop</p>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500">
+                                                        PNG, JPG, GIF up to 5MB
+                                                    </p>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Image Preview for Existing Images in Edit Mode */}
+                                {isEditMode && currentUpdate?.image_url && !formData.image_file && (
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Current Image</label>
+                                        <div className="relative">
+                                            <img
+                                                src={currentUpdate.image_url}
+                                                alt="Current"
+                                                className="h-48 w-full object-cover rounded-md"
+                                                onError={(e) => {
+                                                    e.currentTarget.src = 'https://via.placeholder.com/400x200?text=Image+Not+Found';
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setFormData({...formData, image_url: null})}
+                                                className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">Click the X to remove this image</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Form Actions */}
-                        <div className="flex justify-end space-x-3">
+                        <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                             <button
                                 type="button"
                                 onClick={closeModal}
@@ -363,7 +614,6 @@ const LatestUpdates: React.FC = () => {
                             </button>
                             <button
                                 style={{ backgroundColor: '#0B6D8E' }}
-                                
                                 type="submit"
                                 className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 sm:text-sm disabled:opacity-50"
                                 disabled={isSubmitting}
@@ -422,10 +672,10 @@ const LatestUpdates: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-800 mb-4 sm:mb-0">Latest Updated News</h1>
                     <button
                         style={{ backgroundColor: '#0B6D8E' }}
-
                         onClick={openCreateModal}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 transform hover:scale-[1.02] active:scale-95"
                     >
+                        <Plus className="h-4 w-4 mr-2" />
                         Add New Update
                     </button>
                 </header>

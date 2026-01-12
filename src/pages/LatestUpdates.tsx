@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Pencil, Trash2, Loader, CheckCircle, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Pencil, Trash2, Loader, CheckCircle, Image as ImageIcon } from 'lucide-react';
 import AdminLayout from "@/components/layout/AdminLayout";
 
 // --- Interfaces for Type Safety ---
@@ -113,10 +113,12 @@ const LatestUpdates: React.FC = () => {
                 return;
             }
             
+            // Create object URL for preview
+            const objectUrl = URL.createObjectURL(file);
             setFormData({ 
                 ...formData, 
                 image_file: file,
-                image_url: URL.createObjectURL(file) // Create preview URL
+                image_url: objectUrl // Temporary object URL for preview
             });
             setError(null);
         }
@@ -124,6 +126,9 @@ const LatestUpdates: React.FC = () => {
 
     // Remove selected image
     const removeImage = () => {
+        if (formData.image_url && formData.image_url.startsWith('blob:')) {
+            URL.revokeObjectURL(formData.image_url);
+        }
         setFormData({ 
             ...formData, 
             image_file: null,
@@ -132,78 +137,61 @@ const LatestUpdates: React.FC = () => {
     };
 
     // Function to upload image to your server
-   // Function to upload image to your server
+// Function to upload image to your server
 // Function to upload image to your server
 const uploadImage = async (file: File): Promise<string | null> => {
-    console.log('=== STARTING UPLOAD ===');
-    console.log('File:', file.name, 'Size:', file.size, 'Type:', file.type);
-    
     try {
-        // First, test if the endpoint is reachable
-        const testResponse = await fetch('/api/upload/test');
-        console.log('Test endpoint status:', testResponse.status);
-        const testResult = await testResponse.json();
-        console.log('Test endpoint result:', testResult);
+        console.log('📤 Starting upload for file:', file.name, 'Size:', file.size, 'Type:', file.type);
         
         const formData = new FormData();
         formData.append('image', file);
         
-        console.log('Sending upload request to /api/upload/upload');
-        
-        const uploadResponse = await fetch('/api/upload/upload', {
+        // Use the full URL to your backend upload endpoint
+        const uploadResponse = await fetch('https://geemadhura.braventra.in/api/upload/upload', {
             method: 'POST',
             body: formData,
-            // Note: Don't set Content-Type header for FormData
         });
         
-        console.log('Upload response status:', uploadResponse.status);
-        console.log('Upload response headers:', uploadResponse.headers);
+        console.log('📥 Upload response status:', uploadResponse.status);
         
-        // Get response as text first to see what's being returned
-        const responseText = await uploadResponse.text();
-        console.log('Raw response text:', responseText);
-        
-        let result;
-        try {
-            result = JSON.parse(responseText);
-            console.log('Parsed JSON result:', result);
-        } catch (parseError) {
-            console.error('Failed to parse JSON:', parseError);
-            console.error('Response text that failed to parse:', responseText);
-            throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}`);
-        }
+        const result = await uploadResponse.json();
+        console.log('📥 Upload response:', result);
         
         if (!uploadResponse.ok || !result.success) {
-            console.error('Upload failed with result:', result);
             throw new Error(result.message || `Upload failed with status ${uploadResponse.status}`);
         }
         
         if (result.imageUrl) {
             let fullUrl = result.imageUrl;
+            
             // Make sure we have the full URL
             if (fullUrl.startsWith('/')) {
                 fullUrl = `https://geemadhura.braventra.in${fullUrl}`;
             }
-            console.log('Upload successful! URL:', fullUrl);
+            
+            // Also accept fullUrl from response if provided
+            if (result.fullUrl) {
+                fullUrl = result.fullUrl;
+            }
+            
+            console.log('✅ Upload successful! URL:', fullUrl);
             return fullUrl;
         } else {
-            console.error('No imageUrl in response:', result);
             throw new Error('Server response missing imageUrl');
         }
         
     } catch (error) {
-        console.error('=== UPLOAD ERROR DETAILS ===');
-        console.error('Error type:', error.constructor.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
+        console.error('❌ Upload error:', error);
         
-        // Re-throw with more context
-        if (error instanceof TypeError && error.message.includes('fetch')) {
-            throw new Error('Network error. Check if server is running.');
-        } else if (error instanceof Error) {
-            throw new Error(`Upload failed: ${error.message}`);
+        // More specific error messages
+        if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+            throw new Error('Network error. Please check your connection and try again.');
+        } else if (error.message.includes('413')) {
+            throw new Error('File is too large. Maximum size is 5MB.');
+        } else if (error.message.includes('JSON')) {
+            throw new Error('Server returned invalid response. Check if upload endpoint is working.');
         } else {
-            throw new Error('Unknown upload error occurred');
+            throw new Error(`Upload failed: ${error.message}`);
         }
     }
 };
@@ -241,6 +229,10 @@ const uploadImage = async (file: File): Promise<string | null> => {
         setIsModalOpen(false);
         setIsEditMode(false);
         setCurrentUpdate(null);
+        // Clean up object URLs
+        if (formData.image_url && formData.image_url.startsWith('blob:')) {
+            URL.revokeObjectURL(formData.image_url);
+        }
         setFormData({ 
             title: '', 
             description: '', 
@@ -272,12 +264,20 @@ const uploadImage = async (file: File): Promise<string | null> => {
             
             // Upload new image if a file was selected
             if (formData.image_file) {
+                // Clean up preview URL
+                if (formData.image_url && formData.image_url.startsWith('blob:')) {
+                    URL.revokeObjectURL(formData.image_url);
+                }
+                
                 const uploadedUrl = await uploadImage(formData.image_file);
                 if (uploadedUrl) {
                     imageUrl = uploadedUrl;
                 } else {
                     throw new Error('Failed to upload image');
                 }
+            } else if (isEditMode && !formData.image_url && currentUpdate?.image_url) {
+                // If removing existing image in edit mode
+                imageUrl = null;
             }
 
             // Prepare data for API
@@ -530,10 +530,10 @@ const uploadImage = async (file: File): Promise<string | null> => {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Update Image (Optional)</label>
                                     <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg">
                                         <div className="space-y-1 text-center">
-                                            {formData.image_url || formData.image_file ? (
+                                            {formData.image_url ? (
                                                 <div className="relative">
                                                     <img
-                                                        src={formData.image_url || URL.createObjectURL(formData.image_file!)}
+                                                        src={formData.image_url}
                                                         alt="Preview"
                                                         className="mx-auto h-48 w-full object-cover rounded-md"
                                                     />
@@ -590,7 +590,7 @@ const uploadImage = async (file: File): Promise<string | null> => {
                                             />
                                             <button
                                                 type="button"
-                                                onClick={() => setFormData({...formData, image_url: null})}
+                                                onClick={removeImage}
                                                 className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
                                             >
                                                 <X className="h-4 w-4" />

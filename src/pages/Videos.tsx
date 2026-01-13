@@ -18,7 +18,7 @@ import { toast } from 'sonner'; // Assuming you use a toast/notification library
 import { Switch } from "@/components/ui/switch"; 
 
 // --- Configuration ---
-const API_BASE_URL = 'https://btr.braventra.in/api/videos';
+const API_BASE_URL = 'https://geemadhura.braventra.in/api/videos';
 
 // --- Interfaces ---
 interface Video {

@@ -111,14 +111,14 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <span className="text-muted-foreground">🔧</span>
                 Manage Services
               </NavLink>
-              {/* <NavLink
+              <NavLink
                 to="/testimonials"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"
                 activeClassName="bg-muted font-medium"
               >
                 <span className="text-muted-foreground">💬</span>
                 Testimonials
-              </NavLink> */}
+              </NavLink>
               <NavLink
                 to="/blogs"
                 className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted"

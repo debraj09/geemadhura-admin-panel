@@ -141,14 +141,13 @@ const JoditEditorWrapper: React.FC<JoditEditorWrapperProps> = ({
             'redo'
         ],
         removeButtons: ['image', 'file', 'video', 'table'], // Remove media buttons if not needed
-        defaultActionOnPaste: 'insert_as_html' as any,
+        defaultActionOnPaste: 'html',
         editHTMLDocumentMode: false,
         enter: 'br' as 'br' | 'div' | 'p',
-        defaultMode: 'wysiwyg',
         useSearch: false,
         spellcheck: true,
         language: 'en',
-        toolbarButtonSize: 'middle' as 'middle',
+        toolbarButtonSize: 'middle' as const,
         theme: 'default',
         controls: {
             font: {
@@ -855,7 +854,7 @@ const ServiceListManager: React.FC<ServiceListManagerProps> = ({ onNavigateToCre
                         disabled={isReordering}
                     >
                         <Plus size={18} className="mr-1" />
-                        New certification
+                        New Service
                     </button>
                 </div>
             </div>

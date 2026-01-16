@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 import AdminLayout from "@/components/layout/AdminLayout";
 
+// Import Jodit Editor
+import { Jodit } from 'jodit';
+import JoditEditor from 'jodit-react';
+
 // Import DnD Kit components
 import {
     DndContext,
@@ -74,174 +78,109 @@ const BASE_URL: string = 'https://geemadhura.braventra.in';
 const API_ENDPOINT: string = `${BASE_URL}/api/services`;
 // ----------------------------------------
 
-// --- Lightweight Rich Text Editor Component ---
-interface RichTextEditorProps {
+// --- Jodit Rich Text Editor Component ---
+interface JoditEditorWrapperProps {
     value: string;
     onChange: (value: string) => void;
     placeholder?: string;
-    height?: string;
+    height?: number;
     className?: string;
 }
 
-const RichTextEditor: React.FC<RichTextEditorProps> = ({ 
+const JoditEditorWrapper: React.FC<JoditEditorWrapperProps> = ({ 
     value, 
     onChange, 
     placeholder = "Start typing...",
-    height = "200px",
+    height = 300,
     className = ""
 }) => {
-    const editorRef = useRef<HTMLDivElement>(null);
-    const [isFocused, setIsFocused] = useState(false);
-    const [showToolbar, setShowToolbar] = useState(false);
-
-    // Initialize editor content
-    useEffect(() => {
-        if (editorRef.current && !isFocused && editorRef.current.innerHTML !== value) {
-            editorRef.current.innerHTML = value || '';
+    const editor = useRef<any>(null);
+    
+    const config = useMemo(() => ({
+        readonly: false,
+        placeholder: placeholder || 'Start typing...',
+        height: height,
+        toolbarAdaptive: false,
+        toolbarSticky: true,
+        showCharsCounter: true,
+        showWordsCounter: true,
+        showXPathInStatusbar: false,
+        buttons: [
+            'source',
+            '|',
+            'bold',
+            'italic',
+            'underline',
+            '|',
+            'ul',
+            'ol',
+            '|',
+            'font',
+            'fontsize',
+            'brush',
+            '|',
+            'align',
+            '|',
+            'link',
+            '|',
+            'undo',
+            'redo',
+            '|',
+            'preview',
+            'print'
+        ],
+        buttonsXS: [
+            'bold',
+            'italic',
+            'underline',
+            '|',
+            'ul',
+            'ol',
+            '|',
+            'undo',
+            'redo'
+        ],
+        removeButtons: ['image', 'file', 'video', 'table'], // Remove media buttons if not needed
+        defaultActionOnPaste: 'insert_as_html' as any,
+        editHTMLDocumentMode: false,
+        enter: 'br' as 'br' | 'div' | 'p',
+        defaultMode: 'wysiwyg',
+        useSearch: false,
+        spellcheck: true,
+        language: 'en',
+        toolbarButtonSize: 'middle' as 'middle',
+        theme: 'default',
+        controls: {
+            font: {
+                list: {
+                    '': 'Default',
+                    'Arial, Helvetica, sans-serif': 'Arial',
+                    'Georgia, serif': 'Georgia',
+                    'Impact, Charcoal, sans-serif': 'Impact',
+                    'Tahoma, Geneva, sans-serif': 'Tahoma',
+                    'Times New Roman, Times, serif': 'Times New Roman',
+                    'Verdana, Geneva, sans-serif': 'Verdana',
+                    'Courier New, Courier, monospace': 'Courier New'
+                }
+            },
+            fontSize: {
+                list: ['8', '9', '10', '11', '12', '14', '16', '18', '24', '30', '36', '48', '60', '72', '96']
+            }
         }
-    }, [value, isFocused]);
-
-    const handleInput = () => {
-        if (editorRef.current) {
-            const newValue = editorRef.current.innerHTML;
-            onChange(newValue);
-        }
-    };
-
-    const execCommand = (command: string, value?: string) => {
-        document.execCommand(command, false, value);
-        handleInput();
-        editorRef.current?.focus();
-        setShowToolbar(true);
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        // Show toolbar when user starts typing
-        if (e.key.length === 1) { // Any character key
-            setShowToolbar(true);
-        }
-    };
-
-    const clearFormatting = () => {
-        execCommand('removeFormat');
-    };
-
-    const insertLink = () => {
-        const url = prompt('Enter URL:', 'https://');
-        if (url) {
-            execCommand('createLink', url);
-        }
-    };
+    }), [placeholder, height]);
 
     return (
-        <div className={`border border-gray-300 rounded-lg overflow-hidden ${className}`}>
-            {/* Toolbar */}
-            <div className={`bg-gray-50 border-b border-gray-300 p-2 transition-all duration-200 ${showToolbar ? 'opacity-100 h-auto' : 'opacity-0 h-0 overflow-hidden border-0'}`}>
-                <div className="flex flex-wrap gap-1 items-center">
-                    {/* Formatting buttons */}
-                    <div className="flex items-center space-x-1 mr-2">
-                        <button
-                            type="button"
-                            onClick={() => execCommand('bold')}
-                            className="px-3 py-1.5 text-sm font-bold border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Bold (Ctrl+B)"
-                        >
-                            <strong>B</strong>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => execCommand('italic')}
-                            className="px-3 py-1.5 text-sm italic border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Italic (Ctrl+I)"
-                        >
-                            <em>I</em>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => execCommand('underline')}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Underline (Ctrl+U)"
-                        >
-                            <u>U</u>
-                        </button>
-                    </div>
-
-                    {/* Lists */}
-                    <div className="flex items-center space-x-1 mr-2">
-                        <button
-                            type="button"
-                            onClick={() => execCommand('insertUnorderedList')}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Bullet List"
-                        >
-                            • List
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => execCommand('insertOrderedList')}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Numbered List"
-                        >
-                            1. List
-                        </button>
-                    </div>
-
-                    {/* Links and Clear */}
-                    <div className="flex items-center space-x-1">
-                        <button
-                            type="button"
-                            onClick={insertLink}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Insert Link"
-                        >
-                            🔗 Link
-                        </button>
-                        <button
-                            type="button"
-                            onClick={clearFormatting}
-                            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 transition-colors"
-                            title="Clear Formatting"
-                        >
-                            🧹 Clear
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            {/* Editor Area */}
-            <div
-                ref={editorRef}
-                contentEditable
-                onInput={handleInput}
-                onFocus={() => {
-                    setIsFocused(true);
-                    setShowToolbar(true);
-                }}
-                onBlur={() => setIsFocused(false)}
-                onKeyDown={handleKeyDown}
-                onClick={() => setShowToolbar(true)}
-                className="p-4 focus:outline-none overflow-y-auto bg-white"
-                style={{ 
-                    height,
-                    minHeight: height
-                }}
-                data-placeholder={placeholder}
-                dangerouslySetInnerHTML={{ __html: value || '' }}
+        <div className={className}>
+            <JoditEditor
+                ref={editor}
+                value={value}
+                config={config}
+                onChange={onChange}
+                onBlur={newContent => onChange(newContent)} // Update on blur as well
             />
-            
-            {/* Placeholder when empty */}
-            {!value && !isFocused && (
-                <div 
-                    className="absolute top-12 left-4 text-gray-400 pointer-events-none cursor-text"
-                    onClick={() => editorRef.current?.focus()}
-                >
-                    {placeholder}
-                </div>
-            )}
-            
-            {/* Character count */}
-            <div className="text-xs text-gray-500 px-4 py-2 border-t border-gray-200 bg-gray-50">
-                {value ? `Characters: ${value.replace(/<[^>]*>/g, '').length}` : 'Start typing...'}
+            <div className="text-xs text-gray-500 mt-2">
+                Characters: {value.replace(/<[^>]*>/g, '').length} | 
+                Words: {value.replace(/<[^>]*>/g, '').split(/\s+/).filter(word => word.length > 0).length}
             </div>
         </div>
     );
@@ -1397,11 +1336,11 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack,
                                 Description*
                             </label>
                             <div className={`mt-1 ${errors.description ? 'border border-red-500 rounded-lg' : ''}`}>
-                                <RichTextEditor
+                                <JoditEditorWrapper
                                     value={formData.description}
                                     onChange={handleEditorChange('description')}
                                     placeholder="Enter service description..."
-                                    height="250px"
+                                    height={250}
                                 />
                             </div>
                             {errors.description && (
@@ -1430,11 +1369,11 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack,
                                 Scope of Work Content
                             </label>
                             <div className="mt-1">
-                                <RichTextEditor
+                                <JoditEditorWrapper
                                     value={formData.scopeContent}
                                     onChange={handleEditorChange('scopeContent')}
                                     placeholder="Enter scope of work content..."
-                                    height="250px"
+                                    height={250}
                                 />
                             </div>
                         </div>
@@ -1477,11 +1416,11 @@ const ServiceFormManager: React.FC<ServiceFormManagerProps> = ({ onNavigateBack,
                                 Meta Description
                             </label>
                             <div className="mt-1">
-                                <RichTextEditor
+                                <JoditEditorWrapper
                                     value={formData.metaDescription}
                                     onChange={handleEditorChange('metaDescription')}
                                     placeholder="Enter meta description..."
-                                    height="150px"
+                                    height={150}
                                 />
                             </div>
                         </div>
